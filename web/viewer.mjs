@@ -266,6 +266,7 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 	let camera;
 	let controls = null;
 	let userFramed = false;
+	let perspTarget = null;
 	// Static scenes render on demand; only modulated docs animate every frame.
 	let needsRender = true;
 	const invalidate = () => {
@@ -293,7 +294,11 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 		}
 		const target = new THREE.Vector3(cx, cy, cz);
 		camera.lookAt(target);
-		controls = makeOrbit(camera, canvas, target, invalidate);
+		perspTarget = target;
+		controls = makeOrbit(camera, canvas, target, () => {
+			userFramed = true;
+			invalidate();
+		});
 	} else {
 		camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1000, 1000);
 		const z = activeCam?.position?.[2] || 10;
@@ -316,6 +321,10 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 		if (camera.isPerspectiveCamera) {
 			camera.aspect = width / Math.max(1, height);
 			camera.updateProjectionMatrix();
+			if (!userFramed && perspTarget) {
+				recenterPerspective(camera, perspTarget, parsed.bounds);
+				controls?.resync?.();
+			}
 		} else if (!userFramed) {
 			if (isOrthoDoc && activeCam.orthoHeight > 0) {
 				fitOrthoHeight(camera, canvas, cx, cy, activeCam.orthoHeight);
@@ -524,6 +533,46 @@ function makePanZoom(camera, canvas, onInteract) {
 	};
 }
 
+/**
+ * Re-aim the camera so the projected scene bounds sit centered in the frame.
+ * lookAt(bounds center) alone reads off-center in perspective — near geometry
+ * projects larger, pushing the visual mass low and sideways. Only the aim
+ * point moves; the camera stays where the document authored it.
+ */
+function recenterPerspective(camera, target, bounds) {
+	const { minX, minY, maxX, maxY, minZ = 0, maxZ = 0 } = bounds;
+	if (![minX, minY, maxX, maxY, minZ, maxZ].every(Number.isFinite)) return;
+	const corners = [];
+	for (const x of [minX, maxX])
+		for (const y of [minY, maxY]) for (const z of [minZ, maxZ]) corners.push(new THREE.Vector3(x, y, z));
+	// Each re-aim changes the projection slightly; a few passes settle it.
+	for (let pass = 0; pass < 4; pass++) {
+		camera.updateMatrixWorld();
+		let loX = Infinity;
+		let loY = Infinity;
+		let hiX = -Infinity;
+		let hiY = -Infinity;
+		for (const c of corners) {
+			const p = c.clone().project(camera);
+			loX = Math.min(loX, p.x);
+			loY = Math.min(loY, p.y);
+			hiX = Math.max(hiX, p.x);
+			hiY = Math.max(hiY, p.y);
+		}
+		const ndcX = (loX + hiX) / 2;
+		const ndcY = (loY + hiY) / 2;
+		const dist = camera.position.distanceTo(target);
+		const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * dist;
+		const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+		const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+		target.add(
+			right.multiplyScalar(ndcX * halfH * camera.aspect).add(up.multiplyScalar(ndcY * halfH))
+		);
+		camera.lookAt(target);
+	}
+	camera.updateMatrixWorld();
+}
+
 function makeOrbit(camera, canvas, target, onInteract) {
 	let mode = null; // "orbit" (left drag) | "pan" (middle drag = truck)
 	let lastX = 0;
@@ -587,6 +636,11 @@ function makeOrbit(camera, canvas, target, onInteract) {
 	canvas.addEventListener("wheel", onWheel, { passive: false });
 	return {
 		update() {},
+		// Re-derive orbit state after the camera or target moved outside the
+		// controls (initial recenter), so the first drag does not snap back.
+		resync() {
+			spherical = new THREE.Spherical().setFromVector3(camera.position.clone().sub(target));
+		},
 		dispose() {
 			canvas.removeEventListener("pointerdown", onDown);
 			window.removeEventListener("pointerup", onUp);

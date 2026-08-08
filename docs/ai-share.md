@@ -26,13 +26,13 @@ Payload formats (stable): `u1.<base64url(utf8)>` or `z1.<base64url(deflate-raw)>
 ## What to do as an agent
 
 1. Generate JSON using the RigWorks skill + [port-map](port-map.md) + [examples](../examples/).
-2. Validate (`rig-validate` or ensure zero skipped keys).
+2. Validate — Viewer auto-opens an **Issues** panel on load (structure, unknown schemas, dangling refs). For full schema checks use RigWorks `rig-validate`.
 3. **If small:** encode or open the viewer, hit **Copy link**, paste the `?doc=` URL.
 4. **If soft warning:** still OK for a one-off; prefer gist/`?src=` if the user will reshare.
 5. **If hard:** do **not** invent a mega-URL. Save a gist / commit a blob and reply with:
 
 ```
-https://viewer.rigs.works/?src=https://gist.githubusercontent.com/.../raw/.../sketch.json
+https://viewer.rig.works/?src=https://gist.githubusercontent.com/.../raw/.../sketch.json
 ```
 
 (`/web/?…` also works on the hosted site and is the local `npm run serve` path.)
@@ -74,7 +74,7 @@ Skipped Contract keys still show in the bottom overlay — fix those before shar
 
 ## Domain
 
-Preferred host (pin): **`https://viewer.rigs.works`**. Keep `?src=` and `?doc=` stable — that is the agent contract. Fallback while DNS/Pages catch up: `https://rigkid.github.io/RigViewer/` or `npm run serve` locally.
+Preferred host (pin): **`https://viewer.rig.works`**. Keep `?src=` and `?doc=` stable — that is the agent contract. Fallback while DNS/Pages catch up: `https://rigkid.github.io/RigViewer/` or `npm run serve` locally.
 
 ## Checklist
 
@@ -84,5 +84,5 @@ Preferred host (pin): **`https://viewer.rigs.works`**. Keep `?src=` and `?doc=` 
 - [x] `?doc=` + soft/hard feedback
 - [x] localStorage save / restore
 - [x] `llms.txt`
-- [x] Preferred host documented (`viewer.rigs.works`; Pages fallback)
+- [x] Preferred host documented (`viewer.rig.works`; Pages fallback)
 - [ ] Optional: Doxygen HTML under `/api/` (desktop only)

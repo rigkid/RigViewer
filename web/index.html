@@ -362,8 +362,37 @@
 			width: min(320px, calc(100% - 24px));
 			max-height: calc(100% - 60px);
 		}
+		#issues-panel {
+			position: absolute;
+			bottom: 12px;
+			left: 12px;
+			z-index: 5;
+			width: min(440px, calc(100% - 24px));
+			max-height: min(50%, calc(100% - 24px));
+		}
 		.rig-pref { display: flex; flex-direction: column; gap: 0.25rem; font-size: 12px; color: var(--text); }
 		.rig-pref-note { color: var(--muted); font-size: 11px; }
+		.rig-issues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+		.rig-issue {
+			margin: 0;
+			padding: 0.35rem 0.45rem;
+			border-left: 2px solid var(--border);
+			font-size: 12px;
+			line-height: 1.35;
+			color: var(--text);
+		}
+		.rig-issue[data-level="error"] { border-color: #c06060; background: rgba(80, 24, 24, 0.35); }
+		.rig-issue[data-level="warn"] { border-color: #c0a050; background: rgba(70, 56, 16, 0.3); }
+		.rig-issue[data-level="note"] { border-color: var(--border); color: var(--muted); }
+		.rig-issue-code {
+			display: inline-block;
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: var(--muted);
+			margin-right: 0.35rem;
+		}
+		.rig-issue-hint { display: block; margin-top: 0.2rem; color: var(--muted); font-size: 11px; }
 		.rig-info {
 			display: grid;
 			grid-template-columns: auto 1fr;
@@ -503,6 +532,7 @@
 				<summary>Examples</summary>
 				<div class="menu-items">
 					<a class="menu-item" href="?src=examples/demo-3d.json">3D demo</a>
+					<a class="menu-item" href="?src=examples/demo-solar.json">Solar system</a>
 					<a class="menu-item" href="?src=examples/demo-gleditor.json">glEditor</a>
 					<a class="menu-item" href="?src=examples/minimal-scene.json">2D scene</a>
 					<a class="menu-item" href="?src=examples/ui-panel.json">UI panel</a>
@@ -544,6 +574,16 @@
 						</select>
 						<span class="rig-pref-note">Auto shades flat unless the document authors normals.</span>
 					</label>
+				</div>
+			</section>
+			<section id="issues-panel" class="rig-panel" hidden>
+				<header class="rig-panel-head" id="issues-head">
+					<span class="rig-caret">▾</span>
+					<strong>Issues</strong>
+					<span class="rig-panel-role" id="issues-role">validator</span>
+				</header>
+				<div class="rig-panel-body">
+					<ul class="rig-issues" id="issues-list"></ul>
 				</div>
 			</section>
 			<div id="panels" hidden></div>

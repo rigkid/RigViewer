@@ -16,6 +16,7 @@ const uiPath = path.join(web, "ui.mjs");
 const editorPath = path.join(web, "editor.mjs");
 const sharePath = path.join(web, "share.mjs");
 const shaderPath = path.join(web, "shader.mjs");
+const validatePath = path.join(web, "validate.mjs");
 const appPath = path.join(web, "app.mjs");
 const indexPath = path.join(web, "index.html");
 const outPath = path.join(root, "dist", "rigviewer.html");
@@ -32,6 +33,7 @@ const uiSrc = fs.readFileSync(uiPath, "utf8");
 const editorSrc = fs.readFileSync(editorPath, "utf8");
 const shareSrc = fs.readFileSync(sharePath, "utf8");
 const shaderSrc = fs.readFileSync(shaderPath, "utf8");
+const validateSrc = fs.readFileSync(validatePath, "utf8");
 const appSrc = fs.readFileSync(appPath, "utf8");
 const indexHtml = fs.readFileSync(indexPath, "utf8");
 
@@ -52,6 +54,7 @@ const parseUrl = URL.createObjectURL(new Blob([${JSON.stringify(parseSrc)}], { t
 const shareUrl = URL.createObjectURL(new Blob([${JSON.stringify(shareSrc)}], { type: "text/javascript" }));
 const shaderUrl = URL.createObjectURL(new Blob([${JSON.stringify(shaderSrc)}], { type: "text/javascript" }));
 const editorUrl = URL.createObjectURL(new Blob([${JSON.stringify(editorSrc)}], { type: "text/javascript" }));
+const validateUrl = URL.createObjectURL(new Blob([${JSON.stringify(validateSrc)}], { type: "text/javascript" }));
 
 const viewerBody = ${JSON.stringify(viewerSrc)}
 	.replace(/from ["']\\.\\/vendor\\/three\\.module\\.js["']/, \`from "\${threeUrl}"\`)
@@ -63,7 +66,8 @@ const uiBody = ${JSON.stringify(uiSrc)}
 const appBody = ${JSON.stringify(appSrc)}
 	.replace(/from ["']\\.\\/viewer\\.mjs["']/, "from \\"__VIEWER__\\"")
 	.replace(/from ["']\\.\\/ui\\.mjs["']/, "from \\"__UI__\\"")
-	.replace(/from ["']\\.\\/share\\.mjs["']/, \`from "\${shareUrl}"\`);
+	.replace(/from ["']\\.\\/share\\.mjs["']/, \`from "\${shareUrl}"\`)
+	.replace(/from ["']\\.\\/validate\\.mjs["']/, \`from "\${validateUrl}"\`);
 
 const viewerUrl = URL.createObjectURL(new Blob([viewerBody], { type: "text/javascript" }));
 const uiUrl = URL.createObjectURL(new Blob([uiBody], { type: "text/javascript" }));

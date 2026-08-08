@@ -3,6 +3,7 @@
  */
 import { parseDocumentText, mountViewer, documentWantsShaderPreview } from "./viewer.mjs";
 import { mountUiPanels, wirePanelHead } from "./ui.mjs";
+import { validateDocument } from "./validate.mjs";
 import {
 	assessDocSize,
 	buildDocUrl,
@@ -32,6 +33,8 @@ let currentText = null;
 let currentTitle = "";
 let currentParsed = null;
 let currentLabel = "";
+/** @type {ReturnType<typeof validateDocument> | null} */
+let currentReport = null;
 
 let statusTimer = 0;
 function flashStatus(message) {
@@ -83,6 +86,9 @@ const infoSrc = document.getElementById("info-src");
 const viewItems = document.getElementById("view-items");
 const prefsPanel = document.getElementById("prefs-panel");
 const prefShading = document.getElementById("pref-shading");
+const issuesPanel = document.getElementById("issues-panel");
+const issuesList = document.getElementById("issues-list");
+const issuesRole = document.getElementById("issues-role");
 
 // Viewer preferences — persisted per browser, applied on (re)mount.
 const PREFS_KEY = "rigviewer.prefs.v1";
@@ -136,8 +142,13 @@ function viewMenuItem(title, checked, onClick) {
 function refreshViewMenu() {
 	if (!viewItems) return;
 	viewItems.replaceChildren();
-	const wins = [{ id: "__info", title: "Info", el: infoPanel }, ...docWindows];
+	const wins = [
+		{ id: "__info", title: "Info", el: infoPanel },
+		{ id: "__issues", title: "Issues", el: issuesPanel },
+		...docWindows,
+	];
 	for (const w of wins) {
+		if (!w.el) continue;
 		viewItems.appendChild(
 			viewMenuItem(w.title, !w.el.hidden, () => {
 				w.el.hidden = !w.el.hidden;
@@ -190,6 +201,12 @@ function renderInfo() {
 		["LFOs", String(p.lfos?.length ?? 0)],
 		["Controls", controlsHint(p) || "—"],
 		["Skipped keys", p.skipped?.length ? p.skipped.join(", ") : "none"],
+		[
+			"Validation",
+			currentReport
+				? `${currentReport.errors.length} error(s), ${currentReport.warnings.length} warning(s)`
+				: "—",
+		],
 	];
 	for (const [k, v] of rows) {
 		const dt = document.createElement("dt");
@@ -199,6 +216,45 @@ function renderInfo() {
 		infoList.append(dt, dd);
 	}
 	infoSrc.textContent = currentText || "(source text unavailable)";
+}
+
+function renderIssues(report, { autoOpen = true } = {}) {
+	currentReport = report;
+	if (!issuesPanel || !issuesList) return;
+	issuesList.replaceChildren();
+	const issues = report?.issues || [];
+	if (issuesRole) {
+		const e = report?.errors?.length || 0;
+		const w = report?.warnings?.length || 0;
+		issuesRole.textContent = e || w ? `${e}× err · ${w}× warn` : "clean";
+	}
+	if (!issues.length) {
+		issuesPanel.hidden = true;
+		refreshViewMenu();
+		return;
+	}
+	for (const it of issues) {
+		const li = document.createElement("li");
+		li.className = "rig-issue";
+		li.dataset.level = it.level || "note";
+		const code = document.createElement("span");
+		code.className = "rig-issue-code";
+		code.textContent = it.level || "note";
+		li.append(code, document.createTextNode(it.message));
+		if (it.hint) {
+			const hint = document.createElement("span");
+			hint.className = "rig-issue-hint";
+			hint.textContent = it.hint;
+			li.appendChild(hint);
+		}
+		issuesList.appendChild(li);
+	}
+	const serious = (report.errors?.length || 0) + (report.warnings?.length || 0) > 0;
+	if (autoOpen && serious) {
+		issuesPanel.hidden = false;
+		issuesPanel.classList.remove("collapsed");
+	}
+	refreshViewMenu();
 }
 
 if (infoPanel) {
@@ -211,6 +267,9 @@ if (prefsPanel) {
 		prefsPanel.classList.remove("collapsed");
 		refreshViewMenu();
 	});
+}
+if (issuesPanel) {
+	wirePanelHead(issuesPanel, document.getElementById("issues-head"), refreshViewMenu);
 }
 refreshViewMenu();
 
@@ -258,12 +317,8 @@ function showParsed(parsed, label, sourceText) {
 	} else {
 		setShareBanner("", "");
 	}
-	if (parsed.skipped.length) {
-		overlay.style.display = "block";
-		overlay.innerHTML = `<strong>Skipped component keys</strong><br>${parsed.skipped
-			.map((k) => `<code>${k}</code>`)
-			.join(", ")}`;
-	} else {
+	// Skipped keys also surface via the validator (unknown schemas).
+	if (overlay) {
 		overlay.style.display = "none";
 		overlay.textContent = "";
 	}
@@ -272,13 +327,51 @@ function showParsed(parsed, label, sourceText) {
 }
 
 async function loadText(text, label) {
+	const report = validateDocument(text);
+	renderIssues(report);
+
+	if (!report.doc) {
+		status.textContent = report.errors[0]?.message || "Invalid document";
+		empty.style.display = "grid";
+		return false;
+	}
+
 	try {
 		const parsed = parseDocumentText(text);
+		// Parser skip list can catch keys validate didn't (keep them visible).
+		if (parsed.skipped?.length) {
+			for (const key of parsed.skipped) {
+				if (report.issues.some((i) => i.key === key)) continue;
+				report.warnings.push({
+					level: "warn",
+					code: "skipped",
+					message: `Skipped component key "${key}"`,
+					key,
+				});
+				report.issues.push(report.warnings[report.warnings.length - 1]);
+			}
+			renderIssues(report);
+		}
 		showParsed(parsed, label, text);
+		if (!report.ok || report.warnings.length) {
+			const n = report.errors.length + report.warnings.length;
+			status.textContent = `${parsed.title || "Untitled"} · ${n} issue${n === 1 ? "" : "s"}`;
+		}
 		return true;
 	} catch (err) {
 		status.textContent = `Load failed: ${err.message || err}`;
+		if (!report.errors.length) {
+			report.errors.push({
+				level: "error",
+				code: "parse",
+				message: String(err.message || err),
+			});
+			report.issues = [...report.errors, ...report.warnings, ...report.notes];
+			report.ok = false;
+			renderIssues(report);
+		}
 		console.error(err);
+		empty.style.display = "grid";
 		return false;
 	}
 }

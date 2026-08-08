@@ -29,7 +29,7 @@ desktop\build\bin\RigViewer.exe examples\minimal-scene.json
 
 ## Web viewer (zero install)
 
-1. Open the hosted page: **`https://viewer.rigs.works`** (preferred) or `https://<org>.github.io/RigViewer/` after Pages is enabled.
+1. Open the hosted page: **`https://viewer.rig.works`** (preferred) or `https://<org>.github.io/RigViewer/` after Pages is enabled.
 2. Or download [`dist/rigviewer.html`](dist/rigviewer.html) and double-click it — works offline.
 3. Drag a Rig document onto the page, use **Open**, or pass `?src=<url>` (e.g. `?src=examples/demo-3d.json`).
 
@@ -95,7 +95,7 @@ npm run docs   # → docs/api/html/index.html
 Remote: `rigkid/RigViewer` (branch `master`). Push when you want the host live — agents prepare commits locally only.
 
 1. GitHub → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. After a green `pages` workflow: `https://rigkid.github.io/RigViewer/` (and custom domain `viewer.rigs.works` when DNS is ready).
+2. After a green `pages` workflow: `https://rigkid.github.io/RigViewer/` (and custom domain `viewer.rig.works` when DNS is ready).
 3. The workflow deploys the viewer at site root **and** under `/web/`, plus `dist/rigviewer.html`, `examples/`, `llms.txt`, and key docs.
 
 Emscripten / wasm of the desktop host is a separate RigKit issue — this repo keeps a lean JS viewer for the send-around case.
