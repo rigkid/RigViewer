@@ -1,7 +1,7 @@
 {
   "rig": "0.9.0",
   "document": {
-    "title": "glEditor buffers — gradient + plasma",
+    "title": "glEditor buffers",
     "defaultUnit": "px"
   },
   "entities": [

@@ -41,12 +41,21 @@ function meshGeometry(drawable) {
 	const geo = new THREE.BufferGeometry();
 	geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
 	if (drawable.indices?.length) geo.setIndex(drawable.indices);
-	geo.computeVertexNormals();
+	if (drawable.normals?.length) {
+		const normals = [];
+		for (const n of drawable.normals) normals.push(n[0], n[1], n[2] ?? 0);
+		geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+	} else {
+		// Smooth-averaged normals; only sampled when the material shades smooth.
+		geo.computeVertexNormals();
+	}
 	return geo;
 }
 
-function meshMaterial(drawable, parsed, lit) {
+function meshMaterial(drawable, parsed, lit, shading = "auto") {
 	const matData = drawable.materialId ? parsed.materials?.[drawable.materialId] : null;
+	// Contract default: no authored normals = flat (face) shading.
+	const flat = shading === "flat" || (shading === "auto" && !drawable.normals);
 	if (lit || matData) {
 		const albedo = matData?.albedoRgb || drawable.paint?.fillRgba || [0.75, 0.75, 0.8];
 		const emissive = matData?.emissive || [0, 0, 0];
@@ -55,6 +64,7 @@ function meshMaterial(drawable, parsed, lit) {
 			metalness: matData?.metallic ?? 0.1,
 			roughness: matData?.roughness ?? 0.55,
 			emissive: colorFromRgba(emissive, 0x000000),
+			flatShading: flat,
 			side: THREE.DoubleSide,
 			// Avoid scanline z-fight when authored bases sit on the ground plane.
 			polygonOffset: true,
@@ -121,8 +131,9 @@ function ensureEntityGroup(map, root, id) {
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {ReturnType<typeof parseDocument>} parsed
+ * @param {{ shading?: "auto" | "flat" | "smooth" }} [prefs]
  */
-export function mountViewer(canvas, parsed) {
+export function mountViewer(canvas, parsed, prefs = {}) {
 	// glEditor-style buffers: fullscreen Shadertoy preview (no mesh scene).
 	if (documentWantsShaderPreview(parsed)) {
 		return mountShaderPreview(canvas, parsed);
@@ -183,7 +194,7 @@ export function mountViewer(canvas, parsed) {
 				);
 			} else {
 				const lit = isPersp && (parsed.lights?.length > 0 || d.materialId);
-				group.add(new THREE.Mesh(geo, meshMaterial(d, parsed, lit)));
+				group.add(new THREE.Mesh(geo, meshMaterial(d, parsed, lit, prefs.shading || "auto")));
 			}
 		}
 	}
@@ -354,9 +365,10 @@ export function mountViewer(canvas, parsed) {
 			if (!paint) continue;
 			let brightness = 1;
 			if (parsed.lfos?.length) {
+				// Map sample [-1, 1] straight to brightness [0, 1]: amplitude 1
+				// swings from black to full colour, amplitude 0 holds mid-grey.
 				const sample = sampleLfo(parsed.lfos[0], t);
-				const amp = Math.abs(parsed.lfos[0].amplitude ?? 1) || 1;
-				brightness = Math.min(1, Math.max(0.15, (sample / amp + 1) * 0.5));
+				brightness = Math.min(1, Math.max(0, (1 + sample) / 2));
 			}
 			led.mat.color.setRGB(
 				(paint.rgba[0] ?? 1) * brightness,

@@ -1,7 +1,7 @@
 {
   "rig": "0.9.0",
   "document": {
-    "title": "3D demo — orbit the low-poly set",
+    "title": "3D demo",
     "defaultUnit": "m",
     "colorSpace": "srgb"
   },
@@ -153,6 +153,9 @@
         "rig.geometry.mesh": {
           "mode": "triangles",
           "positions": [
+            0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, -1, 0, -1, 0
+          ],
+          "normals": [
             0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, -1, 0, -1, 0
           ],
           "indices": [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1, 5, 2, 1, 5, 3, 2, 5, 4, 3, 5, 1, 4]

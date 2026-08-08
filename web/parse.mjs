@@ -231,23 +231,25 @@ function flattenPathCommands(commands) {
 	return contours;
 }
 
-function meshPositions(mesh) {
-	const positions = mesh.positions;
-	if (!positions?.length) return { verts: [], mode: mesh.mode || "triangles", indices: mesh.indices || null, faceColors: mesh.faceColors || null };
-
-	// Flat float[] or vec3[]
-	const verts = [];
-	if (typeof positions[0] === "number") {
-		for (let i = 0; i + 2 < positions.length; i += 3) {
-			verts.push([positions[i], positions[i + 1], positions[i + 2]]);
-		}
+function vec3List(raw) {
+	if (!raw?.length) return null;
+	const out = [];
+	if (typeof raw[0] === "number") {
+		for (let i = 0; i + 2 < raw.length; i += 3) out.push([raw[i], raw[i + 1], raw[i + 2]]);
 	} else {
-		for (const v of positions) {
-			verts.push([v[0] ?? 0, v[1] ?? 0, v[2] ?? 0]);
-		}
+		for (const v of raw) out.push([v[0] ?? 0, v[1] ?? 0, v[2] ?? 0]);
 	}
+	return out;
+}
+
+function meshPositions(mesh) {
+	const verts = vec3List(mesh.positions) || [];
+	// Authored normals must be parallel to positions; mismatched data is dropped.
+	let normals = vec3List(mesh.normals);
+	if (normals && normals.length !== verts.length) normals = null;
 	return {
 		verts,
+		normals,
 		mode: mesh.mode || "triangles",
 		indices: mesh.indices || null,
 		faceColors: mesh.faceColors || null,
@@ -591,6 +593,7 @@ export function parseDocument(doc) {
 				name,
 				kind: "mesh",
 				verts: mesh.verts.map(([x, y, z]) => [x, y, z ?? 0]),
+				normals: mesh.normals,
 				mode: mesh.mode,
 				indices: mesh.indices,
 				faceColors: mesh.faceColors,
@@ -680,7 +683,10 @@ export function sampleLfo(lfo, timeSec) {
 	const amp = lfo.amplitude ?? 1;
 	const offset = lfo.offset ?? 0;
 	const phase0 = lfo.phase ?? 0;
-	const t = timeSec * freq + phase0;
+	// Prefer the accumulated cycle count (kept by tickModulators): it stays
+	// phase-continuous when frequency changes mid-run. `t * freq` would rescale
+	// all elapsed time and make the output jump on every slider move.
+	const t = (lfo._cycles ?? timeSec * freq) + phase0;
 	const frac = t - Math.floor(t);
 	let w = 0;
 	switch (lfo.waveform || "sine") {
@@ -780,9 +786,8 @@ export function setProperty(state, entityId, propertyKey, value) {
 export function runAction(state, actionId, timeSec = 0) {
 	if (actionId === "lfo.resetPhase") {
 		for (const lfo of state.lfos || []) {
-			// Zero the instantaneous phase: freq*t + phase ≡ 0 (mod 1)
-			const frac = timeSec * (lfo.frequency ?? 0);
-			lfo.phase = -frac;
+			// Zero the instantaneous phase: cycles + phase ≡ 0 (mod 1)
+			lfo.phase = -(lfo._cycles ?? timeSec * (lfo.frequency ?? 0));
 		}
 		return true;
 	}
@@ -796,6 +801,10 @@ export function runAction(state, actionId, timeSec = 0) {
 export function tickModulators(state, timeSec) {
 	const samples = new Map();
 	for (const lfo of state.lfos || []) {
+		// Integrate cycles so frequency edits are phase-continuous.
+		const dt = lfo._t == null ? timeSec : Math.max(0, timeSec - lfo._t);
+		lfo._t = timeSec;
+		lfo._cycles = (lfo._cycles ?? 0) + dt * (lfo.frequency ?? 0);
 		samples.set(lfo.id, sampleLfo(lfo, timeSec));
 	}
 	for (const b of state.bindings || []) {

@@ -1,5 +1,7 @@
 # RigViewer
 
+![preview](examples/preview.png)
+
 Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents.
 
 **Viewer presents; Player plays.** This repo is the Viewer — it presents POD (scene / GLSL sketch). It does **not** run document Lua. Playable `.rig` documents belong in [RigPlayer](https://github.com/rigkid/RigPlayer).

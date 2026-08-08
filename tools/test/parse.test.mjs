@@ -128,6 +128,45 @@ test("demo-3d has perspective camera, meshes, lights, materials", () => {
 	assert.ok(parsed.lights.length >= 1);
 	assert.ok(Object.keys(parsed.materials).length >= 3);
 	assert.ok(parsed.bounds.maxZ > parsed.bounds.minZ || parsed.drawables.some((d) => d.kind === "mesh"));
+	// Authored normals ride through parallel to verts; absent stays null (= flat).
+	const crystal = parsed.drawables.find((d) => d.id === "crystal");
+	assert.equal(crystal.normals.length, crystal.verts.length);
+	const wedge = parsed.drawables.find((d) => d.id === "wedge");
+	assert.equal(wedge.normals, null);
+});
+
+test("lfo frequency edits stay phase-continuous (no flicker)", () => {
+	const lfo = { id: "l", waveform: "saw", frequency: 1, amplitude: 1, offset: 0, phase: 0 };
+	const state = { lfos: [lfo], bindings: [] };
+	tickModulators(state, 0.25);
+	const before = sampleLfo(lfo, 0.25);
+	lfo.frequency = 4; // slider drag: 1 Hz -> 4 Hz
+	tickModulators(state, 0.26);
+	const after = sampleLfo(lfo, 0.26);
+	// 0.01 s at 4 Hz advances 0.04 cycles; a rescale of elapsed time would jump ~0.8.
+	assert.ok(Math.abs(after - before) < 0.1, `jumped from ${before} to ${after}`);
+});
+
+test("mesh normals dropped when not parallel to positions", () => {
+	const doc = {
+		rig: "0.9.0",
+		document: { title: "n" },
+		entities: [
+			{
+				id: "m",
+				components: {
+					"rig.geometry.mesh": {
+						mode: "triangles",
+						positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+						normals: [0, 0, 1],
+						indices: [0, 1, 2],
+					},
+				},
+			},
+		],
+	};
+	const parsed = parseDocument(doc);
+	assert.equal(parsed.drawables.find((d) => d.id === "m").normals, null);
 });
 
 test("parseDocumentText rejects garbage", () => {

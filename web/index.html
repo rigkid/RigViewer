@@ -61,6 +61,7 @@
 		header .meta {
 			color: var(--muted);
 			margin-left: auto;
+			margin-right: 0.25rem;
 			font-size: 12px;
 			overflow: hidden;
 			text-overflow: ellipsis;
@@ -106,9 +107,10 @@
 			font-size: 13px;
 			text-decoration: none;
 		}
+		.menu-item { display: flex; align-items: center; gap: 0.5rem; }
 		.menu-item:hover { background: #1d2c40; }
-		/* Fixed-width check gutter so checked/unchecked items align identically. */
-		.menu-check { display: inline-block; width: 1em; margin-right: 0.25rem; color: var(--accent); }
+		/* Check sits on the right so item text lines up across all menus. */
+		.menu-check { margin-left: auto; min-width: 1em; text-align: right; color: var(--accent); }
 		.menu-item[aria-current="page"] { color: var(--accent); }
 		.menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
 		.menu-sep { height: 1px; background: var(--border); margin: 0.25rem 0.2rem; }
@@ -342,6 +344,16 @@
 			width: min(400px, calc(100% - 24px));
 			max-height: calc(100% - 24px);
 		}
+		#prefs-panel {
+			position: absolute;
+			top: 48px;
+			left: 48px;
+			z-index: 4;
+			width: min(320px, calc(100% - 24px));
+			max-height: calc(100% - 60px);
+		}
+		.rig-pref { display: flex; flex-direction: column; gap: 0.25rem; font-size: 12px; color: var(--text); }
+		.rig-pref-note { color: var(--muted); font-size: 11px; }
 		.rig-info {
 			display: grid;
 			grid-template-columns: auto 1fr;
@@ -469,6 +481,8 @@
 					<button type="button" class="menu-item" id="btn-restore-local" hidden title="Restore last local sketch">Restore local</button>
 					<div class="menu-sep"></div>
 					<a class="menu-item" id="download-single" href="rigviewer.html" title="Self-contained offline copy">Single-file HTML</a>
+					<div class="menu-sep"></div>
+					<button type="button" class="menu-item" id="btn-prefs" title="Viewer preferences (stored in this browser)">Preferences…</button>
 				</div>
 			</details>
 			<details class="menu" id="menu-view">
@@ -503,6 +517,23 @@
 						<summary>Source</summary>
 						<pre id="info-src"></pre>
 					</details>
+				</div>
+			</section>
+			<section id="prefs-panel" class="rig-panel" hidden>
+				<header class="rig-panel-head" id="prefs-head">
+					<span class="rig-caret">▾</span>
+					<strong>Preferences</strong>
+					<span class="rig-panel-role">viewer</span>
+				</header>
+				<div class="rig-panel-body">
+					<label class="rig-pref">Mesh shading
+						<select id="pref-shading">
+							<option value="auto">Auto — document decides</option>
+							<option value="flat">Always flat</option>
+							<option value="smooth">Always smooth</option>
+						</select>
+						<span class="rig-pref-note">Auto shades flat unless the document authors normals.</span>
+					</label>
 				</div>
 			</section>
 			<div id="panels" hidden></div>

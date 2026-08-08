@@ -81,33 +81,83 @@ const infoPanel = document.getElementById("info-panel");
 const infoList = document.getElementById("info-list");
 const infoSrc = document.getElementById("info-src");
 const viewItems = document.getElementById("view-items");
+const prefsPanel = document.getElementById("prefs-panel");
+const prefShading = document.getElementById("pref-shading");
+
+// Viewer preferences — persisted per browser, applied on (re)mount.
+const PREFS_KEY = "rigviewer.prefs.v1";
+function loadPrefs() {
+	const defaults = { shading: "auto" };
+	try {
+		return { ...defaults, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") };
+	} catch {
+		return defaults;
+	}
+}
+const prefs = loadPrefs();
+function savePrefs() {
+	try {
+		localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+	} catch {
+		/* private mode — prefs just won't stick */
+	}
+}
+function remountViewer() {
+	if (!currentParsed) return;
+	handle?.dispose();
+	handle = mountViewer(canvas, currentParsed, prefs);
+}
+if (prefShading) {
+	prefShading.value = prefs.shading;
+	prefShading.addEventListener("change", () => {
+		prefs.shading = prefShading.value;
+		savePrefs();
+		remountViewer();
+	});
+}
 
 /** Windows owned by the current document (rebuilt on load). */
 let docWindows = [];
 
 // View menu = window registry. Future window kinds (node editor, timeline, …)
 // just add entries here — same close/reopen/drag/fold behavior for free.
+function viewMenuItem(title, checked, onClick) {
+	const b = document.createElement("button");
+	b.type = "button";
+	b.className = "menu-item";
+	const check = document.createElement("span");
+	check.className = "menu-check";
+	check.textContent = checked ? "✓" : "";
+	b.append(document.createTextNode(title), check);
+	b.addEventListener("click", onClick);
+	return b;
+}
+
 function refreshViewMenu() {
 	if (!viewItems) return;
 	viewItems.replaceChildren();
 	const wins = [{ id: "__info", title: "Info", el: infoPanel }, ...docWindows];
 	for (const w of wins) {
-		const b = document.createElement("button");
-		b.type = "button";
-		b.className = "menu-item";
-		const check = document.createElement("span");
-		check.className = "menu-check";
-		check.textContent = w.el.hidden ? "" : "✓";
-		b.append(check, document.createTextNode(w.title));
-		b.addEventListener("click", () => {
-			w.el.hidden = !w.el.hidden;
-			w.el.classList.remove("collapsed");
-			if (w.el === infoPanel && !w.el.hidden) renderInfo();
-			refreshViewMenu();
-		});
-		viewItems.appendChild(b);
+		viewItems.appendChild(
+			viewMenuItem(w.title, !w.el.hidden, () => {
+				w.el.hidden = !w.el.hidden;
+				w.el.classList.remove("collapsed");
+				if (w.el === infoPanel && !w.el.hidden) renderInfo();
+				refreshViewMenu();
+			}),
+		);
 	}
+	const sep = document.createElement("div");
+	sep.className = "menu-sep";
+	viewItems.appendChild(sep);
+	viewItems.appendChild(
+		viewMenuItem("Full screen", !!document.fullscreenElement, () => {
+			if (document.fullscreenElement) document.exitFullscreen();
+			else document.documentElement.requestFullscreen();
+		}),
+	);
 }
+document.addEventListener("fullscreenchange", () => refreshViewMenu());
 
 function controlsHint(parsed) {
 	if (parsed.codes?.some((c) => c.language === "glsl") && !parsed.geometryCount) {
@@ -154,6 +204,14 @@ function renderInfo() {
 if (infoPanel) {
 	wirePanelHead(infoPanel, document.getElementById("info-head"), refreshViewMenu);
 }
+if (prefsPanel) {
+	wirePanelHead(prefsPanel, document.getElementById("prefs-head"), refreshViewMenu);
+	document.getElementById("btn-prefs")?.addEventListener("click", () => {
+		prefsPanel.hidden = false;
+		prefsPanel.classList.remove("collapsed");
+		refreshViewMenu();
+	});
+}
 refreshViewMenu();
 
 function needsPlayer(parsed) {
@@ -172,7 +230,7 @@ function needsPlayer(parsed) {
 function showParsed(parsed, label, sourceText) {
 	handle?.dispose();
 	uiHandle?.dispose();
-	handle = mountViewer(canvas, parsed);
+	handle = mountViewer(canvas, parsed, prefs);
 	// Shader docs get the Hydra-style layout: code floating over the visual.
 	panelsHost.classList.toggle("code-overlay", documentWantsShaderPreview(parsed));
 	uiHandle = mountUiPanels(panelsHost, parsed, {
