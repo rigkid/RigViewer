@@ -224,11 +224,19 @@ void RigViewerApp::setup() {
 	if (auto shellPack = packs->getPack<rigkit::rigDocumentShell>()) {
 		auto& shell = shellPack->shell();
 		shell.setOnOpenPath([this](const std::string& path) { m_pendingPath = path; });
-		shell.setOpenFilters({".json", ".rig"});
-		if (auto* ui = m_engine->getUiManager()) {
-			if (auto* mui = dynamic_cast<rigkit::Mui*>(ui)) {
-				shell.attachChrome(*mui, true, true);
+		shell.setOpenFilters({".rig", ".json"});
+		shell.setOnNeedsPlayer([this]() {
+			// Playable document: surface the honesty window instead of a silent log.
+			window().title += "  [open in RigPlayer]";
+			if (auto* ui = m_engine->getUiManager()) {
+				if (auto* wm = ui->getWindowManager()) {
+					wm->showWindow("Skipped keys");
+				}
 			}
+		});
+		if (auto* ui = m_engine->getUiManager()) {
+			m_engine->enableEditMode(true);
+			shell.attachChrome(*ui, true, true);
 		}
 	}
 
@@ -281,16 +289,6 @@ void RigViewerApp::update(float dt) {
 	updateOrbitInput();
 }
 
-void RigViewerApp::promptOpen() {
-	auto* packs = m_engine ? m_engine->getPackManager() : nullptr;
-	if (!packs) {
-		return;
-	}
-	if (auto shellPack = packs->getPack<rigkit::rigDocumentShell>()) {
-		shellPack->shell().promptOpen();
-	}
-}
-
 void RigViewerApp::openPath(const std::string& path) {
 	auto* ecs = m_engine ? m_engine->getECSManager() : nullptr;
 	if (!ecs) {
@@ -323,7 +321,7 @@ void RigViewerApp::openPath(const std::string& path) {
 			auto& shell = shellPack->shell();
 			shell.setDocumentTitle(result.title);
 			shell.setSkippedKeys(result.skipped);
-			if (rigkit::DocumentShell::looksLikeCart(result.skipped, hasLua)) {
+			if (rigkit::DocumentShell::needsPlayer(result.skipped, hasLua)) {
 				shell.notifyNeedsPlayer();
 			}
 			if (auto* ui = m_engine->getUiManager()) {

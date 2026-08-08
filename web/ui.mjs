@@ -4,6 +4,7 @@
  */
 
 import { getProperty, setProperty, runAction } from "./parse.mjs";
+import { createCodeEditor } from "./editor.mjs";
 
 function rgbaToHex(rgba) {
 	const r = Math.round(Math.min(1, Math.max(0, rgba[0] ?? 0)) * 255);
@@ -162,53 +163,141 @@ function activeCode(state) {
 
 /**
  * Live GLSL / buffer editor bound to `parsed.activeCodeId` + `codes[].text`.
+ * Buffer switching = compact pills in the panel title bar (no tab strip).
  * Shader preview rebuilds from the same objects each frame.
  */
-function buildCodeEditor(state, onChange) {
+function buildCodeEditor(state, onChange, pillsHost) {
 	const wrap = el("div", { className: "rig-code-editor" });
-	const meta = el("div", { className: "rig-code-meta" });
-	const ta = el("textarea", {
-		className: "rig-code-text",
-		spellcheck: "false",
-		autocapitalize: "off",
-		autocomplete: "off",
-		autocorrect: "off",
+	// Language rides in the title-bar role text ("media.code · glsl") — no meta row.
+	const roleSpan = pillsHost?.querySelector?.(".rig-panel-role") || null;
+	const roleBase = roleSpan?.textContent || "";
+	// Dropdown, not tabs/pills: documents can carry any number of buffers.
+	const sel = pillsHost ? el("select", { className: "rig-buf-select" }) : null;
+	if (sel) {
+		sel.addEventListener("change", () => {
+			state.activeCodeId = sel.value;
+			sync();
+			onChange?.();
+		});
+		pillsHost.appendChild(sel);
+	}
+
+	const editor = createCodeEditor({
+		onInput: (text) => {
+			const code = activeCode(state);
+			if (!code || code.readOnly) return;
+			code.text = text;
+			onChange?.();
+		},
 	});
 
 	const sync = () => {
+		const codes = state.codes || [];
 		const code = activeCode(state);
+		if (sel) {
+			sel.replaceChildren();
+			sel.hidden = codes.length < 2;
+			for (const c of codes) {
+				const o = el("option", { value: c.id, text: c.name || c.id });
+				if (c === code) o.selected = true;
+				sel.appendChild(o);
+			}
+		}
 		if (!code) {
-			ta.value = "";
-			ta.disabled = true;
-			meta.textContent = "No code buffer";
+			editor.setValue("");
+			editor.setReadOnly(true);
+			if (roleSpan) roleSpan.textContent = roleBase;
 			return;
 		}
-		ta.disabled = !!code.readOnly;
-		meta.textContent = `${code.name || code.id} · ${code.language || "text"}`;
-		if (ta.value !== code.text) {
-			const start = ta.selectionStart;
-			const end = ta.selectionEnd;
-			ta.value = code.text ?? "";
-			try {
-				ta.setSelectionRange(start, end);
-			} catch {
-				/* ignore */
-			}
+		editor.setLanguage(code.language || "glsl");
+		editor.setReadOnly(!!code.readOnly);
+		editor.setValue(code.text ?? "");
+		if (roleSpan) {
+			roleSpan.textContent = `${roleBase} · ${code.language || "text"}${
+				code.readOnly ? " · read-only" : ""
+			}`;
 		}
 	};
 
-	ta.addEventListener("input", () => {
-		const code = activeCode(state);
-		if (!code || code.readOnly) return;
-		code.text = ta.value;
-		onChange?.();
-	});
-
-	wrap.appendChild(meta);
-	wrap.appendChild(ta);
+	wrap.appendChild(editor.el);
 	sync();
 	wrap._rigSync = sync;
 	return wrap;
+}
+
+/**
+ * Title-bar behavior shared by all panels: drag to move (switches the card to
+ * fixed positioning, snaps to screen edges), plain click folds to the title
+ * bar, × closes the window (View menu reopens it via @p onState).
+ */
+export function wirePanelHead(card, head, onState) {
+	const x = document.createElement("button");
+	x.type = "button";
+	x.className = "rig-x";
+	x.title = "Close — reopen from View";
+	x.textContent = "×";
+	x.addEventListener("click", (e) => {
+		e.stopPropagation();
+		card.hidden = true;
+		onState?.();
+	});
+	head.appendChild(x);
+
+	let dragging = false;
+	let moved = false;
+	let sx = 0;
+	let sy = 0;
+	let ox = 0;
+	let oy = 0;
+	let w = 0;
+	let h = 0;
+	head.addEventListener("pointerdown", (e) => {
+		if (e.target.closest("button, a, input, select, textarea")) return;
+		dragging = true;
+		moved = false;
+		sx = e.clientX;
+		sy = e.clientY;
+		const r = card.getBoundingClientRect();
+		ox = r.left;
+		oy = r.top;
+		w = r.width;
+		h = r.height;
+		head.setPointerCapture?.(e.pointerId);
+	});
+	head.addEventListener("pointermove", (e) => {
+		if (!dragging) return;
+		const dx = e.clientX - sx;
+		const dy = e.clientY - sy;
+		if (!moved) {
+			if (Math.hypot(dx, dy) < 4) return;
+			moved = true;
+			card.style.width = `${w}px`;
+			card.style.position = "fixed";
+			card.style.margin = "0";
+			card.style.zIndex = "5";
+		}
+		// Snap flush to viewport edges (and below the stage top) — poor man's dock.
+		const margin = 8;
+		const snap = 14;
+		let nx = ox + dx;
+		let ny = oy + dy;
+		const stage = document.getElementById("stage");
+		const topMin = (stage ? stage.getBoundingClientRect().top : 0) + margin;
+		if (Math.abs(nx - margin) < snap) nx = margin;
+		if (Math.abs(nx + w - (window.innerWidth - margin)) < snap) nx = window.innerWidth - margin - w;
+		if (Math.abs(ny - topMin) < snap) ny = topMin;
+		if (Math.abs(ny + h - (window.innerHeight - margin)) < snap) ny = window.innerHeight - margin - h;
+		card.style.left = `${nx}px`;
+		card.style.top = `${ny}px`;
+	});
+	const finish = () => {
+		if (dragging && !moved) card.classList.toggle("collapsed");
+		dragging = false;
+	};
+	head.addEventListener("pointerup", finish);
+	head.addEventListener("pointercancel", () => {
+		dragging = false;
+	});
 }
 
 /**
@@ -221,18 +310,20 @@ export function mountUiPanels(host, parsed, opts = {}) {
 	const state = parsed;
 	const getTime = opts.getTime || (() => 0);
 	const onChange = opts.onChange || (() => {});
+	const onWindowState = opts.onWindowState || (() => {});
 	const syncers = [];
+	const windows = [];
 
 	const visiblePanels = (parsed.panels || []).filter((p) => p.visible !== false);
 	const hasCodes = (parsed.codes || []).length > 0;
 	if (!visiblePanels.length && !hasCodes) {
 		host.hidden = true;
-		return { dispose() { host.replaceChildren(); } };
+		return { windows, dispose() { host.replaceChildren(); } };
 	}
 	host.hidden = false;
 
-	const attachEditor = (body, wide) => {
-		const editor = buildCodeEditor(state, onChange);
+	const attachEditor = (body, wide, pillsHost) => {
+		const editor = buildCodeEditor(state, onChange, pillsHost);
 		if (wide) editor.classList.add("rig-code-editor-wide");
 		body.appendChild(editor);
 		syncers.push(editor._rigSync);
@@ -240,19 +331,21 @@ export function mountUiPanels(host, parsed, opts = {}) {
 
 	for (const panel of visiblePanels) {
 		const isCodePanel = panel.role === "media.code" || /code/i.test(panel.role || "");
-		const width = isCodeRole
+		const width = isCodePanel
 			? Math.max(panel.preferredWidth || 0, 420)
 			: panel.preferredWidth || 320;
 		const card = el("section", {
-			className: "rig-panel" + (isCodeRole ? " rig-panel-code" : ""),
+			className: "rig-panel" + (isCodePanel ? " rig-panel-code" : ""),
 			style: `width:min(100%,${width}px)`,
 		});
-		card.appendChild(
-			el("header", { className: "rig-panel-head" }, [
-				el("strong", { text: panel.name || panel.id }),
-				panel.role ? el("span", { className: "rig-panel-role", text: panel.role }) : null,
-			])
-		);
+		const head = el("header", { className: "rig-panel-head" }, [
+			el("span", { className: "rig-caret", text: "▾" }),
+			el("strong", { text: panel.name || panel.id }),
+			panel.role ? el("span", { className: "rig-panel-role", text: panel.role }) : null,
+		]);
+		card.appendChild(head);
+		wirePanelHead(card, head, onWindowState);
+		windows.push({ id: panel.id, title: panel.name || panel.id, el: card });
 
 		const body = el("div", { className: "rig-panel-body" });
 		const panelGroups = (parsed.groups || []).filter((g) => g.panel === panel.id && !g.parent);
@@ -260,6 +353,8 @@ export function mountUiPanels(host, parsed, opts = {}) {
 		const appendItems = (container, groupId) => {
 			const ctrls = (parsed.controls || [])
 				.filter((c) => c.panel === panel.id && (c.group || null) === groupId)
+				// Buffer switching lives in the editor tabs now — drop the dropdown.
+				.filter((c) => !(c.target === "viewer" && c.propertyKey === "activeCodeId"))
 				.sort((a, b) => a.order - b.order);
 			const acts = (parsed.actions || [])
 				.filter((a) => a.panel === panel.id && (a.group || null) === groupId)
@@ -298,8 +393,8 @@ export function mountUiPanels(host, parsed, opts = {}) {
 		}
 
 		appendItems(body, null);
-		if (isCodeRole && hasCodes) {
-			attachEditor(body, true);
+		if (isCodePanel && hasCodes) {
+			attachEditor(body, true, head);
 		}
 
 		card.appendChild(body);
@@ -312,19 +407,22 @@ export function mountUiPanels(host, parsed, opts = {}) {
 			className: "rig-panel rig-panel-code",
 			style: "width:min(100%,420px)",
 		});
-		card.appendChild(
-			el("header", { className: "rig-panel-head" }, [
-				el("strong", { text: "Code" }),
-				el("span", { className: "rig-panel-role", text: "media.code" }),
-			])
-		);
+		const head = el("header", { className: "rig-panel-head" }, [
+			el("span", { className: "rig-caret", text: "▾" }),
+			el("strong", { text: "Code" }),
+			el("span", { className: "rig-panel-role", text: "media.code" }),
+		]);
+		card.appendChild(head);
+		wirePanelHead(card, head, onWindowState);
+		windows.push({ id: "__code", title: "Code", el: card });
 		const body = el("div", { className: "rig-panel-body" });
-		attachEditor(body, true);
+		attachEditor(body, true, head);
 		card.appendChild(body);
 		host.appendChild(card);
 	}
 
 	return {
+		windows,
 		dispose() {
 			host.replaceChildren();
 			host.hidden = true;

@@ -255,6 +255,11 @@ export function mountViewer(canvas, parsed) {
 	let camera;
 	let controls = null;
 	let userFramed = false;
+	// Static scenes render on demand; only modulated docs animate every frame.
+	let needsRender = true;
+	const invalidate = () => {
+		needsRender = true;
+	};
 	const { minX, minY, maxX, maxY, minZ = 0, maxZ = 0 } = parsed.bounds;
 	const cx = (minX + maxX) / 2;
 	const cy = (minY + maxY) / 2;
@@ -277,7 +282,7 @@ export function mountViewer(canvas, parsed) {
 		}
 		const target = new THREE.Vector3(cx, cy, cz);
 		camera.lookAt(target);
-		controls = makeOrbit(camera, canvas, target);
+		controls = makeOrbit(camera, canvas, target, invalidate);
 	} else {
 		camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1000, 1000);
 		const z = activeCam?.position?.[2] || 10;
@@ -289,6 +294,7 @@ export function mountViewer(canvas, parsed) {
 		}
 		controls = makePanZoom(camera, canvas, () => {
 			userFramed = true;
+			invalidate();
 		});
 	}
 
@@ -309,11 +315,17 @@ export function mountViewer(canvas, parsed) {
 			// Keep pan/zoom; only fix aspect when the window changes.
 			refitOrthoAspect(camera, canvas);
 		}
+		invalidate();
 	}
 
 	resize();
 	const onResize = () => resize();
 	window.addEventListener("resize", onResize);
+	// The canvas can change size without a window resize (banner shows/hides,
+	// header wraps, panel layout) — track the element itself so the buffer and
+	// camera aspect never drift from the CSS size (which reads as stretching).
+	const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
+	ro?.observe(canvas);
 
 	const hasMods = (parsed.lfos?.length || 0) > 0;
 	const t0 = performance.now();
@@ -321,18 +333,21 @@ export function mountViewer(canvas, parsed) {
 	let raf = 0;
 	const tick = () => {
 		raf = requestAnimationFrame(tick);
+		// Skip the whole frame when nothing animates and nothing changed.
+		if (!hasMods && !needsRender) return;
+		needsRender = false;
 		const t = getTime();
-		const samples = hasMods
-			? tickModulators(
-					{
-						lfos: parsed.lfos,
-						bindings: parsed.bindings,
-						transforms,
-						paints: parsed.paints,
-					},
-					t
-			  )
-			: null;
+		if (hasMods) {
+			tickModulators(
+				{
+					lfos: parsed.lfos,
+					bindings: parsed.bindings,
+					transforms,
+					paints: parsed.paints,
+				},
+				t
+			);
+		}
 		syncGroups();
 		for (const led of ledMeshes) {
 			const paint = parsed.paints[led.paintId];
@@ -349,18 +364,18 @@ export function mountViewer(canvas, parsed) {
 				(paint.rgba[2] ?? 1) * brightness
 			);
 			led.mat.opacity = paint.rgba[3] ?? 1;
-			led.mat.needsUpdate = true;
 		}
-		void samples;
 		controls?.update?.();
 		renderer.render(scene, camera);
 	};
 	tick();
 
 	return {
+		invalidate,
 		dispose() {
 			cancelAnimationFrame(raf);
 			window.removeEventListener("resize", onResize);
+			ro?.disconnect();
 			controls?.dispose?.();
 			renderer.dispose();
 			scene.traverse((obj) => {
@@ -497,29 +512,54 @@ function makePanZoom(camera, canvas, onInteract) {
 	};
 }
 
-function makeOrbit(camera, canvas, target) {
-	let dragging = false;
+function makeOrbit(camera, canvas, target, onInteract) {
+	let mode = null; // "orbit" (left drag) | "pan" (middle drag = truck)
 	let lastX = 0;
 	let lastY = 0;
 	let spherical = new THREE.Spherical().setFromVector3(camera.position.clone().sub(target));
 	const onDown = (e) => {
-		dragging = true;
+		if (e.button === 1) {
+			// Middle drag trucks; stop the browser's autoscroll widget.
+			e.preventDefault();
+			mode = "pan";
+		} else if (e.button === 0) {
+			mode = "orbit";
+		} else {
+			return;
+		}
 		lastX = e.clientX;
 		lastY = e.clientY;
+		canvas.setPointerCapture?.(e.pointerId);
 	};
 	const onUp = () => {
-		dragging = false;
+		mode = null;
 	};
 	const onMove = (e) => {
-		if (!dragging) return;
+		if (!mode) return;
 		const dx = e.clientX - lastX;
 		const dy = e.clientY - lastY;
 		lastX = e.clientX;
 		lastY = e.clientY;
-		spherical.theta -= dx * 0.005;
-		spherical.phi = Math.min(Math.PI - 0.01, Math.max(0.01, spherical.phi - dy * 0.005));
-		camera.position.setFromSpherical(spherical).add(target);
+		if (mode === "orbit") {
+			spherical.theta -= dx * 0.005;
+			spherical.phi = Math.min(Math.PI - 0.01, Math.max(0.01, spherical.phi - dy * 0.005));
+			camera.position.setFromSpherical(spherical).add(target);
+		} else {
+			// Truck/pedestal: shift camera + target in the view plane, scaled so
+			// the point under the cursor tracks the mouse at the target depth.
+			const h = canvas.clientHeight || 1;
+			const worldPerPx =
+				(2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * spherical.radius) / h;
+			const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+			const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+			const move = right
+				.multiplyScalar(-dx * worldPerPx)
+				.add(up.multiplyScalar(dy * worldPerPx));
+			target.add(move);
+			camera.position.add(move);
+		}
 		camera.lookAt(target);
+		onInteract?.();
 	};
 	const onWheel = (e) => {
 		e.preventDefault();
@@ -527,6 +567,7 @@ function makeOrbit(camera, canvas, target) {
 		spherical.radius = Math.max(0.1, spherical.radius);
 		camera.position.setFromSpherical(spherical).add(target);
 		camera.lookAt(target);
+		onInteract?.();
 	};
 	canvas.addEventListener("pointerdown", onDown);
 	window.addEventListener("pointerup", onUp);

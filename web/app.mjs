@@ -1,8 +1,8 @@
 /**
  * Page boot for RigViewer web (used by index.html; inlined by tools/bundle.mjs).
  */
-import { parseDocumentText, mountViewer } from "./viewer.mjs";
-import { mountUiPanels } from "./ui.mjs";
+import { parseDocumentText, mountViewer, documentWantsShaderPreview } from "./viewer.mjs";
+import { mountUiPanels, wirePanelHead } from "./ui.mjs";
 import {
 	assessDocSize,
 	buildDocUrl,
@@ -30,18 +30,42 @@ let uiHandle = null;
 let currentText = null;
 /** @type {string} */
 let currentTitle = "";
+let currentParsed = null;
+let currentLabel = "";
+
+let statusTimer = 0;
+function flashStatus(message) {
+	clearTimeout(statusTimer);
+	status.textContent = message;
+	statusTimer = setTimeout(() => {
+		status.textContent = currentParsed?.title || currentTitle || "";
+	}, 4000);
+}
 
 function setShareBanner(level, message) {
 	if (!shareBanner) return;
 	if (!message) {
 		shareBanner.hidden = true;
-		shareBanner.textContent = "";
+		shareBanner.replaceChildren();
 		shareBanner.dataset.level = "";
 		return;
 	}
+	// Informational messages flash in the status text — no banner, no layout shift.
+	if (!level || level === "ok") {
+		flashStatus(message);
+		return;
+	}
 	shareBanner.hidden = false;
-	shareBanner.dataset.level = level || "ok";
-	shareBanner.textContent = message;
+	shareBanner.dataset.level = level;
+	const text = document.createElement("span");
+	text.textContent = message;
+	const close = document.createElement("button");
+	close.type = "button";
+	close.className = "banner-close";
+	close.textContent = "×";
+	close.title = "Dismiss";
+	close.addEventListener("click", () => setShareBanner("", ""));
+	shareBanner.replaceChildren(text, close);
 }
 
 function refreshLocalButton() {
@@ -53,34 +77,129 @@ function refreshLocalButton() {
 	}
 }
 
+const infoPanel = document.getElementById("info-panel");
+const infoList = document.getElementById("info-list");
+const infoSrc = document.getElementById("info-src");
+const viewItems = document.getElementById("view-items");
+
+/** Windows owned by the current document (rebuilt on load). */
+let docWindows = [];
+
+// View menu = window registry. Future window kinds (node editor, timeline, …)
+// just add entries here — same close/reopen/drag/fold behavior for free.
+function refreshViewMenu() {
+	if (!viewItems) return;
+	viewItems.replaceChildren();
+	const wins = [{ id: "__info", title: "Info", el: infoPanel }, ...docWindows];
+	for (const w of wins) {
+		const b = document.createElement("button");
+		b.type = "button";
+		b.className = "menu-item";
+		const check = document.createElement("span");
+		check.className = "menu-check";
+		check.textContent = w.el.hidden ? "" : "✓";
+		b.append(check, document.createTextNode(w.title));
+		b.addEventListener("click", () => {
+			w.el.hidden = !w.el.hidden;
+			w.el.classList.remove("collapsed");
+			if (w.el === infoPanel && !w.el.hidden) renderInfo();
+			refreshViewMenu();
+		});
+		viewItems.appendChild(b);
+	}
+}
+
+function controlsHint(parsed) {
+	if (parsed.codes?.some((c) => c.language === "glsl") && !parsed.geometryCount) {
+		return "live GLSL preview — edit the buffers";
+	}
+	if (parsed.cameras?.some((c) => c.active && c.projection === "perspective")) {
+		return "drag to orbit, scroll to zoom";
+	}
+	if (parsed.cameras?.some((c) => c.active)) {
+		return "drag to pan, scroll to zoom";
+	}
+	return "";
+}
+
+function renderInfo() {
+	if (!infoList || infoPanel.hidden) return;
+	infoList.replaceChildren();
+	if (!currentParsed) {
+		infoSrc.textContent = "Nothing loaded.";
+		return;
+	}
+	const p = currentParsed;
+	const rows = [
+		["Title", p.title || "Untitled"],
+		["Loaded from", currentLabel || "—"],
+		["Entities", String(p.entityCount ?? "—")],
+		["Drawables", String(p.geometryCount ?? 0)],
+		["Code buffers", String(p.codes?.length ?? 0)],
+		["Panels", String(p.panels?.length ?? 0)],
+		["LFOs", String(p.lfos?.length ?? 0)],
+		["Controls", controlsHint(p) || "—"],
+		["Skipped keys", p.skipped?.length ? p.skipped.join(", ") : "none"],
+	];
+	for (const [k, v] of rows) {
+		const dt = document.createElement("dt");
+		dt.textContent = k;
+		const dd = document.createElement("dd");
+		dd.textContent = v;
+		infoList.append(dt, dd);
+	}
+	infoSrc.textContent = currentText || "(source text unavailable)";
+}
+
+if (infoPanel) {
+	wirePanelHead(infoPanel, document.getElementById("info-head"), refreshViewMenu);
+}
+refreshViewMenu();
+
+function needsPlayer(parsed) {
+	if (parsed.codes?.some((c) => c.language === "lua" || c.language === "pico8")) {
+		return true;
+	}
+	return (parsed.skipped || []).some(
+		(k) =>
+			k.startsWith("rig.pixel.") ||
+			k.startsWith("rig.music.") ||
+			k.startsWith("rig.input.") ||
+			k.startsWith("rig.media.code"),
+	);
+}
+
 function showParsed(parsed, label, sourceText) {
 	handle?.dispose();
 	uiHandle?.dispose();
 	handle = mountViewer(canvas, parsed);
+	// Shader docs get the Hydra-style layout: code floating over the visual.
+	panelsHost.classList.toggle("code-overlay", documentWantsShaderPreview(parsed));
 	uiHandle = mountUiPanels(panelsHost, parsed, {
 		getTime: () => handle?.getTime?.() ?? 0,
+		onChange: () => handle?.invalidate?.(),
+		onWindowState: refreshViewMenu,
 	});
+	docWindows = uiHandle.windows || [];
+	refreshViewMenu();
 	empty.style.display = "none";
 	if (typeof sourceText === "string") {
 		currentText = sourceText;
 		currentTitle = parsed.title || "";
 	}
-	const bits = [];
-	if (parsed.geometryCount) bits.push(`${parsed.geometryCount} drawable(s)`);
-	if (parsed.codes?.length) bits.push(`${parsed.codes.length} code buffer(s)`);
-	if (parsed.panels?.length) bits.push(`${parsed.panels.length} panel(s)`);
-	if (parsed.lfos?.length) bits.push(`${parsed.lfos.length} LFO(s)`);
-	status.textContent = `${parsed.title} — ${bits.join(", ") || parsed.entityCount + " entities"}${
-		label ? " · " + label : ""
-	}${
-		parsed.codes?.some((c) => c.language === "glsl") && !parsed.geometryCount
-			? " · Shadertoy preview (glEditor buffers)"
-			: parsed.cameras?.some((c) => c.active && c.projection === "perspective")
-				? " · drag to orbit, scroll to zoom"
-				: parsed.cameras?.some((c) => c.active)
-					? " · drag to pan, scroll to zoom"
-					: ""
-	}`;
+	currentParsed = parsed;
+	currentLabel = label || "";
+	// Keep the bar quiet — details live in File → Info.
+	status.textContent = parsed.title || "Untitled";
+	renderInfo();
+	if (needsPlayer(parsed)) {
+		setShareBanner(
+			"soft",
+			"This document has a play loop — Viewer presents; Player plays. Open the .rig in RigPlayer.",
+		);
+	} else {
+		setShareBanner("", "");
+	}
 	if (parsed.skipped.length) {
 		overlay.style.display = "block";
 		overlay.innerHTML = `<strong>Skipped component keys</strong><br>${parsed.skipped
@@ -190,8 +309,11 @@ fileInput?.addEventListener("change", () => {
 	fileInput.value = "";
 });
 
+// Only light up for real file drags — text drags (selecting code) must not.
+const isFileDrag = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
 ["dragenter", "dragover"].forEach((ev) => {
 	stage.addEventListener(ev, (e) => {
+		if (!isFileDrag(e)) return;
 		e.preventDefault();
 		stage.classList.add("drag");
 	});
@@ -202,6 +324,7 @@ fileInput?.addEventListener("change", () => {
 		stage.classList.remove("drag");
 	});
 });
+window.addEventListener("dragend", () => stage.classList.remove("drag"));
 stage.addEventListener("drop", (e) => {
 	const f = e.dataTransfer?.files?.[0];
 	if (f) loadFile(f);
@@ -217,11 +340,37 @@ btnRestore?.addEventListener("click", () => {
 	restoreLocal();
 });
 
+// Menu bar behavior: close on item click or click-away.
+const menus = document.querySelectorAll("details.menu");
+document.addEventListener("pointerdown", (e) => {
+	for (const m of menus) {
+		if (m.open && !m.contains(e.target)) m.open = false;
+	}
+});
+for (const m of menus) {
+	m.addEventListener("click", (e) => {
+		if (e.target.closest?.(".menu-item")) m.open = false;
+	});
+}
+document.addEventListener("keydown", (e) => {
+	if (e.key === "Escape") {
+		for (const m of menus) m.open = false;
+	}
+});
+
 refreshLocalButton();
 
 const params = new URLSearchParams(location.search);
 const docParam = params.get("doc");
 const src = params.get("src");
+if (src) {
+	for (const a of document.querySelectorAll("#menu-examples a")) {
+		const q = a.getAttribute("href")?.split("?")[1] || "";
+		if (new URLSearchParams(q).get("src") === src) {
+			a.setAttribute("aria-current", "page");
+		}
+	}
+}
 const wantLocal = params.get("local") === "1" || params.get("local") === "true";
 const demoUrls = [
 	"/examples/demo-3d.json",

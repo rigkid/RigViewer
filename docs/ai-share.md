@@ -2,7 +2,7 @@
 
 Goal: an agent (or human) emits a small Rig document, then hands the user a link that opens it in RigViewer.
 
-**Viewer presents; Player plays.** Use Viewer URLs for geometry / UI / GLSL sketches. Cart documents (pixel + Lua) go to [RigPlayer](https://github.com/rigkid/RigPlayer) or export `.p8` via [PicoForge](https://github.com/GitBruno/PicoForge) — do not stuff a cart into `?doc=` and expect it to play.
+**Viewer presents; Player plays.** Use Viewer URLs for geometry / UI / GLSL sketches. Playable documents (pixel + Lua) open in [RigPlayer](https://github.com/rigkid/RigPlayer) — do not stuff one into `?doc=` and expect it to play.
 
 ## Ladder (pick the smallest that fits)
 
@@ -32,8 +32,10 @@ Payload formats (stable): `u1.<base64url(utf8)>` or `z1.<base64url(deflate-raw)>
 5. **If hard:** do **not** invent a mega-URL. Save a gist / commit a blob and reply with:
 
 ```
-https://viewer.rigs.works/web/?src=https://gist.githubusercontent.com/.../raw/.../sketch.json
+https://viewer.rigs.works/?src=https://gist.githubusercontent.com/.../raw/.../sketch.json
 ```
+
+(`/web/?…` also works on the hosted site and is the local `npm run serve` path.)
 
 Local preview:
 
@@ -56,7 +58,7 @@ Skipped Contract keys still show in the bottom overlay — fix those before shar
 
 ## Domain
 
-Production host (pin): **`https://viewer.rigs.works`**. Keep `?src=` and `?doc=` stable — that is the agent contract. Until DNS/Pages are wired, use GitHub Pages or `npm run serve` locally.
+Preferred host (pin): **`https://viewer.rigs.works`**. Keep `?src=` and `?doc=` stable — that is the agent contract. Fallback while DNS/Pages catch up: `https://rigkid.github.io/RigViewer/` or `npm run serve` locally.
 
 ## Checklist
 
@@ -66,5 +68,5 @@ Production host (pin): **`https://viewer.rigs.works`**. Keep `?src=` and `?doc=`
 - [x] `?doc=` + soft/hard feedback
 - [x] localStorage save / restore
 - [x] `llms.txt`
-- [ ] Hosted production URL decided and documented
+- [x] Preferred host documented (`viewer.rigs.works`; Pages fallback)
 - [ ] Optional: Doxygen HTML under `/api/` (desktop only)

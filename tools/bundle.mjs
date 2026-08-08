@@ -13,6 +13,7 @@ const threePath = path.join(web, "vendor", "three.module.js");
 const parsePath = path.join(web, "parse.mjs");
 const viewerPath = path.join(web, "viewer.mjs");
 const uiPath = path.join(web, "ui.mjs");
+const editorPath = path.join(web, "editor.mjs");
 const sharePath = path.join(web, "share.mjs");
 const shaderPath = path.join(web, "shader.mjs");
 const appPath = path.join(web, "app.mjs");
@@ -28,6 +29,7 @@ const threeSrc = fs.readFileSync(threePath, "utf8");
 let parseSrc = fs.readFileSync(parsePath, "utf8");
 const viewerSrc = fs.readFileSync(viewerPath, "utf8");
 const uiSrc = fs.readFileSync(uiPath, "utf8");
+const editorSrc = fs.readFileSync(editorPath, "utf8");
 const shareSrc = fs.readFileSync(sharePath, "utf8");
 const shaderSrc = fs.readFileSync(shaderPath, "utf8");
 const appSrc = fs.readFileSync(appPath, "utf8");
@@ -41,9 +43,7 @@ const styleMatch = indexHtml.match(/<style>([\s\S]*?)<\/style>/);
 const bodyMatch = indexHtml.match(/<body>([\s\S]*?)<script/);
 const style = styleMatch ? styleMatch[1] : "";
 const bodyChrome = bodyMatch
-	? bodyMatch[1]
-			.replace(/href="rigviewer\.html"/g, 'href="#"')
-			.replace(/\s*hidden/, "")
+	? bodyMatch[1].replace(/href="rigviewer\.html"/g, 'href="#"')
 	: "";
 
 const boot = `
@@ -51,13 +51,15 @@ const threeUrl = URL.createObjectURL(new Blob([${JSON.stringify(threeSrc)}], { t
 const parseUrl = URL.createObjectURL(new Blob([${JSON.stringify(parseSrc)}], { type: "text/javascript" }));
 const shareUrl = URL.createObjectURL(new Blob([${JSON.stringify(shareSrc)}], { type: "text/javascript" }));
 const shaderUrl = URL.createObjectURL(new Blob([${JSON.stringify(shaderSrc)}], { type: "text/javascript" }));
+const editorUrl = URL.createObjectURL(new Blob([${JSON.stringify(editorSrc)}], { type: "text/javascript" }));
 
 const viewerBody = ${JSON.stringify(viewerSrc)}
 	.replace(/from ["']\\.\\/vendor\\/three\\.module\\.js["']/, \`from "\${threeUrl}"\`)
 	.replace(/from ["']\\.\\/parse\\.mjs["']/, \`from "\${parseUrl}"\`)
 	.replace(/from ["']\\.\\/shader\\.mjs["']/, \`from "\${shaderUrl}"\`);
 const uiBody = ${JSON.stringify(uiSrc)}
-	.replace(/from ["']\\.\\/parse\\.mjs["']/, \`from "\${parseUrl}"\`);
+	.replace(/from ["']\\.\\/parse\\.mjs["']/, \`from "\${parseUrl}"\`)
+	.replace(/from ["']\\.\\/editor\\.mjs["']/, \`from "\${editorUrl}"\`);
 const appBody = ${JSON.stringify(appSrc)}
 	.replace(/from ["']\\.\\/viewer\\.mjs["']/, "from \\"__VIEWER__\\"")
 	.replace(/from ["']\\.\\/ui\\.mjs["']/, "from \\"__UI__\\"")

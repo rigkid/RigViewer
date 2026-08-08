@@ -34,14 +34,19 @@ jobs:
 
       - name: Assemble site
         run: |
-          mkdir -p _site/examples _site/dist
+          mkdir -p _site/examples _site/dist _site/docs _site/web
+          # Site root = web viewer (github.io / custom domain).
           cp -R web/. _site/
+          # Also mirror under /web/ so local serve and agent URLs with /web/ both work.
+          cp -R web/. _site/web/
           cp dist/rigviewer.html _site/dist/rigviewer.html
           cp dist/rigviewer.html _site/rigviewer.html
+          cp dist/rigviewer.html _site/web/rigviewer.html
           cp examples/*.json _site/examples/
-          # Demo link uses ?src=examples/... from site root; also expose under web path.
           mkdir -p _site/web/examples
-          cp examples/*.json _site/web/examples/ 2>/dev/null || true
+          cp examples/*.json _site/web/examples/
+          cp llms.txt _site/llms.txt
+          cp docs/port-map.md docs/ai-share.md docs/README.md _site/docs/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

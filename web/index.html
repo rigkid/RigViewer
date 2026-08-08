@@ -15,6 +15,8 @@
 			--border: #2a313c;
 		}
 		* { box-sizing: border-box; }
+		/* Author display rules (flex/grid) must never defeat the hidden attribute. */
+		[hidden] { display: none !important; }
 		html, body {
 			margin: 0;
 			height: 100%;
@@ -24,40 +26,92 @@
 		}
 		#app {
 			display: grid;
-			grid-template-rows: auto auto 1fr;
+			grid-template-rows: auto 1fr;
 			height: 100%;
 		}
+		/* Thin menu bar: brand, File / Examples menus, status. */
 		header {
 			display: flex;
-			flex-wrap: wrap;
-			gap: 0.75rem;
 			align-items: center;
-			padding: 0.65rem 0.9rem;
+			gap: 0.15rem;
+			padding: 0.15rem 0.6rem;
 			background: var(--panel);
 			border-bottom: 1px solid var(--border);
+			font-size: 13px;
 		}
 		header h1 {
-			font-size: 1rem;
-			font-weight: 600;
-			margin: 0;
+			display: flex;
+			align-items: center;
+			white-space: nowrap;
+			flex: none;
+			font-size: 13px;
+			font-weight: 650;
+			margin: 0 0.6rem 0 0;
 			letter-spacing: 0.02em;
+		}
+		header h1::before {
+			content: "";
+			flex: none;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--accent);
+			margin-right: 0.45rem;
 		}
 		header .meta {
 			color: var(--muted);
-			margin-right: auto;
+			margin-left: auto;
+			font-size: 12px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			min-width: 0;
 		}
-		button, label.file-btn, header a {
-			appearance: none;
-			border: 1px solid var(--border);
-			background: #1b212b;
-			color: var(--text);
-			padding: 0.35rem 0.7rem;
+		details.menu { position: relative; }
+		details.menu > summary {
+			list-style: none;
+			cursor: pointer;
+			padding: 0.28rem 0.6rem;
 			border-radius: 4px;
+			user-select: none;
+		}
+		details.menu > summary::-webkit-details-marker { display: none; }
+		details.menu > summary:hover, details.menu[open] > summary { background: #232b38; }
+		.menu-items {
+			position: absolute;
+			top: calc(100% + 3px);
+			left: 0;
+			min-width: 200px;
+			background: var(--panel);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 0.3rem;
+			display: flex;
+			flex-direction: column;
+			z-index: 10;
+			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+		}
+		.menu-item {
+			appearance: none;
+			display: block;
+			width: 100%;
+			text-align: left;
+			background: none;
+			border: none;
+			color: var(--text);
+			padding: 0.38rem 0.6rem;
+			border-radius: 5px;
 			cursor: pointer;
 			font: inherit;
+			font-size: 13px;
 			text-decoration: none;
 		}
-		header a:hover { border-color: var(--accent); }
+		.menu-item:hover { background: #1d2c40; }
+		/* Fixed-width check gutter so checked/unchecked items align identically. */
+		.menu-check { display: inline-block; width: 1em; margin-right: 0.25rem; color: var(--accent); }
+		.menu-item[aria-current="page"] { color: var(--accent); }
+		.menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+		.menu-sep { height: 1px; background: var(--border); margin: 0.25rem 0.2rem; }
 		input[type="file"] { display: none; }
 		#stage {
 			position: relative;
@@ -85,30 +139,83 @@
 			pointer-events: none;
 		}
 		#panels:not([hidden]) { pointer-events: auto; }
+		/* Panels: one style for every window (code overlay included) — slim head,
+		   quiet borders, slight translucency over the stage. */
 		.rig-panel {
-			background: rgba(20, 24, 31, 0.94);
+			background: rgba(16, 19, 25, 0.72);
+			backdrop-filter: blur(8px);
 			border: 1px solid var(--border);
-			border-radius: 8px;
-			padding: 0.65rem 0.75rem 0.75rem;
-			box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+			border-radius: 5px;
+			padding: 0.25rem 0.35rem 0.35rem;
+			box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+			resize: both;
+			overflow: auto;
+			min-width: 240px;
+			display: flex;
+			flex-direction: column;
 		}
 		.rig-panel-head {
 			display: flex;
-			align-items: baseline;
-			justify-content: space-between;
-			gap: 0.5rem;
-			margin-bottom: 0.55rem;
+			align-items: center;
+			gap: 0.4rem;
+			margin-bottom: 0.25rem;
+			cursor: grab;
+			user-select: none;
+			touch-action: none;
+			font-size: 12px;
 		}
+		.rig-panel-head:active { cursor: grabbing; }
+		.rig-panel-head > strong { margin-right: auto; font-weight: 600; }
+		.rig-caret {
+			color: var(--muted);
+			font-size: 9px;
+			transition: transform 0.12s ease;
+		}
+		.rig-panel.collapsed .rig-caret { transform: rotate(-90deg); }
+		.rig-panel.collapsed .rig-panel-body { display: none; }
+		.rig-panel.collapsed {
+			resize: none;
+			overflow: hidden;
+			height: auto !important;
+			min-height: 0;
+			padding-bottom: 0.3rem;
+		}
+		.rig-panel.collapsed .rig-panel-head { margin-bottom: 0; }
 		.rig-panel-role {
 			color: var(--muted);
-			font-size: 11px;
+			font-size: 10.5px;
+			order: 5;
 		}
-		.rig-panel-body { display: flex; flex-direction: column; gap: 0.45rem; }
+		.rig-buf-select {
+			order: 6;
+			background: #0d1015;
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			font: inherit;
+			font-size: 11px;
+			padding: 0.08rem 0.25rem;
+			max-width: 140px;
+		}
+		.rig-buf-select:focus { outline: none; border-color: var(--accent); }
+		.rig-x {
+			appearance: none;
+			background: none;
+			border: none;
+			color: var(--muted);
+			font-size: 14px;
+			line-height: 1;
+			padding: 0 0.15rem;
+			cursor: pointer;
+			order: 10;
+		}
+		.rig-x:hover { color: var(--text); }
+		.rig-panel-body { display: flex; flex-direction: column; gap: 0.35rem; }
 		.rig-group {
 			border: 1px solid var(--border);
-			border-radius: 6px;
+			border-radius: 5px;
 			margin: 0;
-			padding: 0.4rem 0.55rem 0.55rem;
+			padding: 0.25rem 0.45rem 0.4rem;
 		}
 		.rig-group legend {
 			padding: 0 0.25rem;
@@ -126,38 +233,161 @@
 		.rig-ctrl-label { color: var(--text); font-size: 12px; grid-column: 1 / -1; }
 		.rig-ctrl input[type="range"] { width: 140px; }
 		.rig-ctrl-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.5rem; text-align: right; }
+		/* One control style across all panels — native widgets on the rig palette. */
+		.rig-panel input[type="range"], .rig-panel input[type="checkbox"] { accent-color: var(--accent); }
+		.rig-panel input[type="color"] {
+			appearance: none;
+			width: 44px;
+			height: 26px;
+			padding: 2px;
+			background: #0d1015;
+			border: 1px solid var(--border);
+			border-radius: 5px;
+			cursor: pointer;
+		}
+		.rig-panel input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
+		.rig-panel input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
+		.rig-panel select, .rig-panel input[type="text"] {
+			background: #0d1015;
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 5px;
+			padding: 0.25rem 0.45rem;
+			font: inherit;
+			font-size: 12.5px;
+		}
+		.rig-panel select:focus, .rig-panel input[type="text"]:focus {
+			outline: none;
+			border-color: var(--accent);
+		}
 		.rig-action {
 			appearance: none;
 			border: 1px solid var(--border);
 			background: #1b212b;
 			color: var(--text);
-			padding: 0.35rem 0.7rem;
+			padding: 0.22rem 0.6rem;
 			border-radius: 4px;
 			cursor: pointer;
 			font: inherit;
+			font-size: 12px;
+			align-self: flex-start;
 		}
 		.rig-action:hover { border-color: var(--accent); }
 		.rig-panel-code { max-height: calc(100vh - 96px); display: flex; flex-direction: column; }
 		.rig-panel-code .rig-panel-body { flex: 1; min-height: 0; }
-		.rig-code-editor { display: flex; flex-direction: column; gap: 0.35rem; min-height: 0; flex: 1; }
-		.rig-code-meta { color: var(--muted); font-size: 11px; }
-		.rig-code-text {
-			width: 100%;
+		.rig-code-editor { display: flex; flex-direction: column; gap: 0.3rem; min-height: 0; flex: 1; }
+		/* Layered editor: highlighted <pre> under a transparent <textarea>. */
+		.rig-edit {
+			position: relative;
+			flex: 1;
 			min-height: 280px;
 			height: min(52vh, 520px);
-			resize: vertical;
-			font: 12px/1.45 ui-monospace, Cascadia Code, Consolas, monospace;
-			tab-size: 4;
-			background: #0d1015;
-			color: var(--text);
 			border: 1px solid var(--border);
-			border-radius: 6px;
-			padding: 0.55rem 0.65rem;
+			border-radius: 4px;
+			background: rgba(13, 16, 21, 0.6);
+			overflow: hidden;
+		}
+		.rig-edit-hl, .rig-edit-ta {
+			font: 12.5px/1.5 ui-monospace, Cascadia Code, Consolas, monospace;
+			tab-size: 4;
 			white-space: pre;
+			word-wrap: normal;
+			padding: 0.55rem 0.65rem;
+			margin: 0;
+			border: none;
+		}
+		.rig-edit-hl {
+			position: absolute;
+			inset: 0;
+			overflow: hidden;
+			pointer-events: none;
+			color: #dbe2ea;
+		}
+		.rig-edit-ta {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			resize: none;
+			background: transparent;
+			color: transparent;
+			caret-color: var(--text);
+			outline: none;
 			overflow: auto;
 		}
-		.rig-code-text:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
-		.rig-code-text:disabled { opacity: 0.6; }
+		.rig-edit-ta::selection { background: rgba(79, 163, 255, 0.28); }
+		.rig-edit:focus-within { border-color: var(--accent); }
+		.rig-edit-ro { opacity: 0.6; }
+		/* Token colors — rig accent for keywords. */
+		.tk-k { color: var(--accent); }
+		.tk-t { color: #4ec9b0; }
+		.tk-b { color: #dcdcaa; }
+		.tk-s { color: #ce9178; }
+		.tk-n { color: #b5cea8; }
+		.tk-c { color: #6a9955; font-style: italic; }
+		/* Shader documents: same window style, just positioned over the visual. */
+		#panels.code-overlay {
+			top: auto;
+			left: 12px;
+			right: auto;
+			bottom: 12px;
+			width: min(620px, calc(100% - 24px));
+			max-height: 60%;
+		}
+		#info-panel {
+			position: absolute;
+			top: 12px;
+			left: 12px;
+			z-index: 3;
+			width: min(400px, calc(100% - 24px));
+			max-height: calc(100% - 24px);
+		}
+		.rig-info {
+			display: grid;
+			grid-template-columns: auto 1fr;
+			gap: 0.25rem 0.9rem;
+			margin: 0;
+			font-size: 12px;
+		}
+		.rig-info dt { color: var(--muted); }
+		.rig-info dd { margin: 0; overflow-wrap: anywhere; }
+		/* ImGui-style collapsing header. */
+		.rig-fold > summary {
+			list-style: none;
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+			background: #1b212b;
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			padding: 0.28rem 0.5rem;
+			font-size: 12px;
+			cursor: pointer;
+			user-select: none;
+		}
+		.rig-fold > summary::-webkit-details-marker { display: none; }
+		.rig-fold > summary::before {
+			content: "▸";
+			color: var(--muted);
+			font-size: 9px;
+			transition: transform 0.12s ease;
+		}
+		.rig-fold[open] > summary::before { transform: rotate(90deg); }
+		.rig-fold > summary:hover { border-color: var(--accent); }
+		.rig-fold > :not(summary) { margin-top: 0.35rem; }
+		#info-src {
+			margin: 0;
+			height: 220px;
+			min-height: 60px;
+			resize: vertical;
+			overflow: auto;
+			font: 11.5px/1.45 ui-monospace, Cascadia Code, Consolas, monospace;
+			background: #0d1015;
+			border: 1px solid var(--border);
+			border-radius: 5px;
+			padding: 0.45rem 0.55rem;
+			white-space: pre;
+		}
 		#overlay {
 			position: absolute;
 			left: 12px;
@@ -188,46 +418,98 @@
 			color: var(--accent);
 			font-size: 0.95em;
 		}
+		/* Floating toast over the stage — never shifts layout. */
 		#share-banner {
 			display: none;
-			padding: 0.45rem 0.9rem;
-			font-size: 12px;
-			border-bottom: 1px solid var(--border);
-			background: #1a222d;
+			position: absolute;
+			top: 0.6rem;
+			left: 50%;
+			transform: translateX(-50%);
+			z-index: 40;
+			max-width: min(80%, 640px);
+			align-items: center;
+			gap: 0.6rem;
+			padding: 0.35rem 0.7rem;
+			font-size: 12.5px;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: rgba(26, 34, 45, 0.85);
+			backdrop-filter: blur(8px);
+			box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 			color: var(--muted);
 		}
-		#share-banner:not([hidden]) { display: block; }
-		#share-banner[data-level="ok"] { color: var(--text); border-color: #2d4a3a; background: #142019; }
-		#share-banner[data-level="soft"] { color: #f0d9a8; border-color: #5a4a28; background: #2a2414; }
-		#share-banner[data-level="hard"] { color: #f0b4b4; border-color: #5a2828; background: #2a1414; }
-		header button:disabled { opacity: 0.45; cursor: not-allowed; }
+		#share-banner:not([hidden]) { display: flex; }
+		#share-banner span { flex: 1; min-width: 0; }
+		.banner-close {
+			appearance: none;
+			background: none;
+			border: none;
+			color: inherit;
+			font-size: 15px;
+			line-height: 1;
+			padding: 0 0.2rem;
+			cursor: pointer;
+			opacity: 0.7;
+		}
+		.banner-close:hover { opacity: 1; }
+		#share-banner[data-level="soft"] { color: #f0d9a8; border-color: #5a4a28; background: rgba(42, 36, 20, 0.88); }
+		#share-banner[data-level="hard"] { color: #f0b4b4; border-color: #5a2828; background: rgba(42, 20, 20, 0.88); }
 	</style>
 </head>
 <body>
 	<div id="app">
 		<header>
 			<h1>RigViewer</h1>
-			<span class="meta" id="status">Drop a Rig document, or Open a file</span>
-			<label class="file-btn">Open<input id="file" type="file" accept=".json,.rig,application/json" /></label>
-			<button type="button" id="btn-copy-link" title="Copy a ?doc= link for small sketches">Copy link</button>
-			<button type="button" id="btn-save-local" title="Save current document in this browser">Save local</button>
-			<button type="button" id="btn-restore-local" hidden title="Restore last local sketch">Restore</button>
-			<a id="download-single" href="rigviewer.html">Single-file HTML</a>
-			<a href="?src=/examples/demo-3d.json">3D demo</a>
-			<a href="?src=/examples/demo-gleditor.json">glEditor</a>
-			<a href="?src=/examples/minimal-scene.json">2D scene</a>
-			<a href="?src=/examples/ui-panel.json">UI panel</a>
-			<a href="?src=/examples/lfo-binding.json">LFO</a>
-			<a href="?src=/examples/portable-tool.json">Portable tool</a>
+			<details class="menu" id="menu-file">
+				<summary>File</summary>
+				<div class="menu-items">
+					<label class="menu-item">Open…<input id="file" type="file" accept=".json,.rig,application/json" /></label>
+					<button type="button" class="menu-item" id="btn-copy-link" title="Copy a ?doc= link for small sketches">Copy link</button>
+					<button type="button" class="menu-item" id="btn-save-local" title="Save current document in this browser">Save local</button>
+					<button type="button" class="menu-item" id="btn-restore-local" hidden title="Restore last local sketch">Restore local</button>
+					<div class="menu-sep"></div>
+					<a class="menu-item" id="download-single" href="rigviewer.html" title="Self-contained offline copy">Single-file HTML</a>
+				</div>
+			</details>
+			<details class="menu" id="menu-view">
+				<summary>View</summary>
+				<div class="menu-items" id="view-items"></div>
+			</details>
+			<details class="menu" id="menu-examples">
+				<summary>Examples</summary>
+				<div class="menu-items">
+					<a class="menu-item" href="?src=/examples/demo-3d.json">3D demo</a>
+					<a class="menu-item" href="?src=/examples/demo-gleditor.json">glEditor</a>
+					<a class="menu-item" href="?src=/examples/minimal-scene.json">2D scene</a>
+					<a class="menu-item" href="?src=/examples/ui-panel.json">UI panel</a>
+					<a class="menu-item" href="?src=/examples/lfo-binding.json">LFO</a>
+					<a class="menu-item" href="?src=/examples/portable-tool.json">Portable tool</a>
+				</div>
+			</details>
+			<span class="meta" id="status">Drop a Rig document, or File → Open</span>
 		</header>
-		<div id="share-banner" hidden data-level=""></div>
 		<div id="stage">
 			<canvas id="view"></canvas>
+			<div id="share-banner" hidden data-level=""></div>
+			<section id="info-panel" class="rig-panel" hidden>
+				<header class="rig-panel-head" id="info-head">
+					<span class="rig-caret">▾</span>
+					<strong>Info</strong>
+					<span class="rig-panel-role">document</span>
+				</header>
+				<div class="rig-panel-body">
+					<dl class="rig-info" id="info-list"></dl>
+					<details class="rig-fold">
+						<summary>Source</summary>
+						<pre id="info-src"></pre>
+					</details>
+				</div>
+			</section>
 			<div id="panels" hidden></div>
 			<div id="empty">
 				<div>
 					<p>Loading scene preview…</p>
-					<p>Or drop a <code>.json</code> / <code>.rig</code> here, or use <strong>Open</strong>.</p>
+					<p>Or drop a <code>.json</code> / <code>.rig</code> here, or use <strong>File → Open</strong>.</p>
 				</div>
 			</div>
 			<div id="overlay"></div>

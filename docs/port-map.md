@@ -2,7 +2,7 @@
 
 How this viewer relates to [RigWorks](https://github.com/rigkid/RigWorks) schemas.
 
-**Viewer presents; Player plays.** Fantasy-console carts (`rig.pixel.*`, Lua `rig.media.code`, music/input) need a **Player** that runs Update/Draw — see [RigPlayer](https://github.com/rigkid/RigPlayer) / [PicoForge](https://github.com/GitBruno/PicoForge). Opening a cart here yields skipped keys or a still frame, not a game.
+**Viewer presents; Player plays.** Documents with a play loop (`rig.pixel.*`, Lua `rig.media.code`, music/input) need **RigPlayer**. Opening one here yields skipped keys or a still frame, not a game.
 
 RigViewer has two fulfillments that share the same **known key** list (`web/parse.mjs` `KNOWN_PASS` and `rigProject` `ContractImport`):
 
@@ -93,7 +93,7 @@ Viewer-local property (not a schema): `viewer` / `activeCodeId` switches the act
 
 | Schema | Web | Desktop | Honesty |
 |--------|-----|---------|---------|
-| `rig.media.code` | Yes | Partial | **Web:** GLSL → Shadertoy-style preview (`mainImage` / `iTime` / `iMouse`) + live textarea when a `media.code` panel (or any code buffers) is present. **Desktop:** imports `CCode`; Contract UI multiline edit; **no** live GLES FBO yet (use RigKit `examples/glEditor`). |
+| `rig.media.code` | Partial | Partial | **GLSL:** web Shadertoy-style preview + live textarea; desktop imports `CCode` (no live GLES FBO yet). **Lua / pico8:** not played here — banner / shell points at **RigPlayer** (`.rig`). |
 | `rig.media.asset_ref` | No | No | Skipped. |
 | `rig.media.text` | No | No | Skipped. |
 

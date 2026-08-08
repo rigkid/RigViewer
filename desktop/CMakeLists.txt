@@ -25,6 +25,11 @@ if(NOT EXISTS "${RIGKIT_DIR}/CMakeLists.txt")
 		"  or: cmake -S desktop -B desktop/build -DRIGKIT_DIR=/path/to/RigKit")
 endif()
 
+# Prefer sibling pack checkouts (rigDocumentShell) when present.
+list(APPEND CMAKE_PREFIX_PATH
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../rigDocumentShell"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../rigDocumentShell")
+
 include("${RIGKIT_DIR}/cmake/CPM.cmake")
 add_subdirectory("${RIGKIT_DIR}" "${CMAKE_BINARY_DIR}/rigkit")
 add_rigkit_application(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")

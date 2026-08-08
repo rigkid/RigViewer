@@ -116,9 +116,9 @@ test("demo-gleditor has glsl code buffers", () => {
 	assert.ok(parsed.codes.every((c) => c.language === "glsl"));
 	assert.ok(parsed.codes.some((c) => c.id === "gradient" && c.text.includes("mainImage")));
 	assert.ok(parsed.codes.some((c) => c.id === "plasma"));
-	assert.equal(parsed.activeCodeId, "gradient");
-	assert.ok(setProperty(parsed, "viewer", "activeCodeId", "plasma"));
-	assert.equal(getProperty(parsed, "viewer", "activeCodeId"), "plasma");
+	assert.equal(parsed.activeCodeId, "plasma");
+	assert.ok(setProperty(parsed, "viewer", "activeCodeId", "gradient"));
+	assert.equal(getProperty(parsed, "viewer", "activeCodeId"), "gradient");
 });
 
 test("demo-3d has perspective camera, meshes, lights, materials", () => {

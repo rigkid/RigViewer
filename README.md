@@ -2,7 +2,7 @@
 
 Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents.
 
-**Viewer presents; Player plays; PicoForge authors carts.** This repo is the Viewer — it presents POD (scene / GLSL sketch). It does **not** run cart Lua. Playable carts belong in [RigPlayer](https://github.com/rigkid/RigPlayer) (promoting from [PicoForge](https://github.com/GitBruno/PicoForge) `player/`); authoring/convert stays in PicoForge.
+**Viewer presents; Player plays.** This repo is the Viewer — it presents POD (scene / GLSL sketch). It does **not** run document Lua. Playable `.rig` documents belong in [RigPlayer](https://github.com/rigkid/RigPlayer).
 
 The `.json` files are **data**. The **scene preview** is this viewer (shapes drawn in a browser / desktop window).
 
@@ -53,7 +53,7 @@ npm test               # parser smoke over examples/
 
 ## Desktop app (RigKit)
 
-See [desktop/README.md](desktop/README.md). Short path:
+See [desktop/README.md](desktop/README.md). Uses **rigDocumentShell** for File → Open and skipped-key honesty (shared with RigPlayer). Short path:
 
 ```bash
 cmake -S desktop -B desktop/build -DRIGKIT_DIR=/path/to/RigKit
@@ -88,20 +88,11 @@ npm run docs   # → docs/api/html/index.html
 
 ## Publish / GitHub Pages
 
-1. Create an empty GitHub repo (e.g. `rigkid/RigViewer`).
-2. From this directory:
+Remote: `rigkid/RigViewer` (branch `master`). Push when you want the host live — agents prepare commits locally only.
 
-```bash
-git add -A
-git status   # review; do not add secrets
-git commit -m "Initial RigViewer: web Three.js viewer + RigKit desktop host"
-git branch -M main
-git remote add origin git@github.com:rigkid/RigViewer.git
-git push -u origin main
-```
-
-3. GitHub → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-4. The `pages` workflow deploys `web/` plus `dist/rigviewer.html`. After the first green run, open `https://<user>.github.io/RigViewer/` and try **3D demo**.
+1. GitHub → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. After a green `pages` workflow: `https://rigkid.github.io/RigViewer/` (and custom domain `viewer.rigs.works` when DNS is ready).
+3. The workflow deploys the viewer at site root **and** under `/web/`, plus `dist/rigviewer.html`, `examples/`, `llms.txt`, and key docs.
 
 Emscripten / wasm of the desktop host is a separate RigKit issue — this repo keeps a lean JS viewer for the send-around case.
 

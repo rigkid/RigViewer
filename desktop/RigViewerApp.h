@@ -27,7 +27,6 @@ class RigViewerApp : public rigkit::IApp {
 
   private:
 	void openPath(const std::string& path);
-	void promptOpen();
 	void ensureContractUiWindow();
 	void resetOrbitFromCamera();
 	void applyOrbitToCamera();

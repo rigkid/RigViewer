@@ -2,25 +2,26 @@
 
 > Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents — JSON in, scene out (web Three.js + optional RigKit desktop).
 
-**Viewer presents; Player plays; PicoForge authors carts.** RigViewer does not execute cart Lua.
+**Viewer presents; Player plays.** RigViewer does not execute document Lua.
 
 ## AI entry
 
 1. Load RigWorks skill first: [generating-rig-documents](https://github.com/rigkid/RigWorks/blob/main/skills/generating-rig-documents/SKILL.md) — emit POD JSON, validate, do not invent schema ids.
-2. Check what this viewer actually draws: [docs/port-map.md](docs/port-map.md). Sketches → Viewer URL; carts → RigPlayer / `.p8`.
+2. Check what this viewer actually draws: [docs/port-map.md](docs/port-map.md). Sketches → Viewer URL; playable documents → RigPlayer (`.rig`).
 3. Prefer patterns from [examples/](examples/) (`minimal-scene.json`, `demo-3d.json`, `demo-gleditor.json`, `lfo-binding.json`, `ui-panel.json`).
 4. Preview: open the hosted viewer with a reachable document URL, or paste locally.
 
 ## Preview URLs
 
 ```
+https://viewer.rigs.works/?src=/examples/demo-3d.json
 https://viewer.rigs.works/web/?src=/examples/demo-3d.json
-https://viewer.rigs.works/web/?src=https://raw.githubusercontent.com/<org>/<repo>/<ref>/path/doc.json
-https://viewer.rigs.works/web/?doc=u1.<base64url>   # small sketches only (see docs/ai-share.md)
-https://viewer.rigs.works/web/?local=1              # restore browser-local save
+https://viewer.rigs.works/?src=https://raw.githubusercontent.com/<org>/<repo>/<ref>/path/doc.json
+https://viewer.rigs.works/?doc=u1.<base64url>   # small sketches only (see docs/ai-share.md)
+https://viewer.rigs.works/?local=1              # restore browser-local save
 ```
 
-Local: `npm run serve` → `http://127.0.0.1:<port>/web/?src=/examples/minimal-scene.json`
+Hosted site serves the viewer at `/` and mirrors it under `/web/` (local `npm run serve` uses `/web/`).
 
 Share ladder (doc → warn → src/local): [docs/ai-share.md](docs/ai-share.md).
 

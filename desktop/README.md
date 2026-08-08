@@ -31,7 +31,7 @@ The center of the window is the live GL present (shapes / lit meshes). Side pane
 
 Supported Contract keys: [docs/port-map.md](../docs/port-map.md).
 
-Desktop chrome (File → Open, skipped keys, Edit Mode defaults) comes from **rigDocumentShell** — shared with RigPlayer.
+Desktop chrome (File → Open, skipped keys, Edit Mode) comes from **rigDocumentShell** — document-host UI only (not load/serialize; that is **rigProject**). Shared with RigPlayer.
 
 If an old `imgui.ini` covered the center with a docked panel, delete `desktop/build/bin/data/user/workspaces/` and relaunch.
 
