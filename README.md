@@ -29,7 +29,7 @@ desktop\build\bin\RigViewer.exe examples\minimal-scene.json
 
 ## Web viewer (zero install)
 
-1. Open the hosted page: **`https://viewer.rigs.works`** (preferred) or `https://<org>.github.io/RigViewer/` after Pages is enabled.
+1. Open the hosted page: **`https://viewer.rig.works`** (preferred) or `https://<org>.github.io/RigViewer/` after Pages is enabled.
 2. Or download [`dist/rigviewer.html`](dist/rigviewer.html) and double-click it — works offline.
 3. Drag a Rig document onto the page, use **Open**, or pass `?src=<url>` (e.g. `?src=examples/demo-3d.json`).
 
