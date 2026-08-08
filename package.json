@@ -1,0 +1,17 @@
+{
+  "name": "rigviewer",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Zero-setup Rig document viewer — web (Three.js) and desktop (RigKit).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "vendor:three": "node tools/vendor-three.mjs",
+    "bundle": "node tools/bundle.mjs",
+    "serve": "node tools/serve.mjs",
+    "test": "node --test tools/test/*.test.mjs",
+    "check": "npm test && npm run bundle",
+    "docs": "doxygen docs/api/Doxyfile"
+  }
+}
+

@@ -1,0 +1,51 @@
+name: pages
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Vendor Three.js and bundle single-file viewer
+        run: |
+          node tools/vendor-three.mjs
+          node tools/bundle.mjs
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site/examples _site/dist
+          cp -R web/. _site/
+          cp dist/rigviewer.html _site/dist/rigviewer.html
+          cp dist/rigviewer.html _site/rigviewer.html
+          cp examples/*.json _site/examples/
+          # Demo link uses ?src=examples/... from site root; also expose under web path.
+          mkdir -p _site/web/examples
+          cp examples/*.json _site/web/examples/ 2>/dev/null || true
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+

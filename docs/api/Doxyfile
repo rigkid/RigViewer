@@ -1,0 +1,58 @@
+# Doxyfile for RigViewer desktop headers (optional API HTML).
+# Generate: doxygen docs/api/Doxyfile
+# Output:   docs/api/html/index.html  (gitignored)
+
+PROJECT_NAME           = "RigViewer"
+PROJECT_NUMBER         = 0.1.0
+PROJECT_BRIEF          = "Contract document viewer — desktop host surface"
+OUTPUT_DIRECTORY       = docs/api
+CREATE_SUBDIRS         = NO
+OUTPUT_LANGUAGE        = English
+
+JAVADOC_AUTOBRIEF      = YES
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+BUILTIN_STL_SUPPORT    = YES
+TAB_SIZE               = 4
+
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = YES
+HIDE_UNDOC_CLASSES     = YES
+HIDE_FRIEND_COMPOUNDS  = YES
+SHOW_INCLUDE_FILES     = YES
+INLINE_INFO            = YES
+SORT_MEMBER_DOCS       = YES
+SORT_BRIEF_DOCS        = NO
+GENERATE_TODOLIST      = NO
+GENERATE_TESTLIST      = NO
+GENERATE_BUGLIST       = NO
+GENERATE_DEPRECATEDLIST = NO
+
+INPUT                  = desktop docs/port-map.md README.md
+FILE_PATTERNS          = *.h *.hpp *.md
+RECURSIVE              = NO
+EXCLUDE_PATTERNS       =
+EXAMPLE_PATH           = examples
+EXAMPLE_PATTERNS       = *.json
+USE_MDFILE_AS_MAINPAGE = README.md
+
+SOURCE_BROWSER         = NO
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = NO
+REFERENCES_RELATION    = NO
+VERBATIM_HEADERS       = NO
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_XML           = NO
+GENERATE_MAN           = NO
+
+HAVE_DOT               = NO
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_DOC_ERROR      = YES

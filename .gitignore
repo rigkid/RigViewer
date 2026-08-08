@@ -1,0 +1,16 @@
+node_modules/
+desktop/build/
+desktop/rigkit/
+web/rigviewer.html
+docs/api/html/
+docs/api/latex/
+docs/api/xml/
+*.user
+*.suo
+.vs/
+.DS_Store
+Thumbs.db
+*.log
+.cursor/
+.claude/
+

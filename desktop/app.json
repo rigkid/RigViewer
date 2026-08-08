@@ -1,0 +1,44 @@
+{
+  "name": "RigViewer",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Desktop Contract document viewer (RigKit host)",
+  "window": {
+    "width": 1100,
+    "height": 720,
+    "title": "RigViewer"
+  },
+  "dependencies": [
+    {
+      "name": "rigComponent",
+      "url": "https://github.com/rigkid/rigComponent.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigSystems",
+      "url": "https://github.com/rigkid/rigSystems.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigProject",
+      "url": "https://github.com/rigkid/rigProject.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigRender3D",
+      "url": "https://github.com/rigkid/rigRender3D.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigImGui",
+      "url": "https://github.com/rigkid/rigImGui.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigDocumentShell",
+      "url": "https://github.com/rigkid/rigDocumentShell.git",
+      "ref": "main"
+    }
+  ]
+}
+

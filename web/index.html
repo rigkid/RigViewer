@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>RigViewer</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #0b0d10;
+			--panel: #14181f;
+			--text: #e8ecf1;
+			--muted: #9aa3ad;
+			--accent: #4fa3ff;
+			--border: #2a313c;
+		}
+		* { box-sizing: border-box; }
+		html, body {
+			margin: 0;
+			height: 100%;
+			background: var(--bg);
+			color: var(--text);
+			font: 14px/1.4 system-ui, Segoe UI, sans-serif;
+		}
+		#app {
+			display: grid;
+			grid-template-rows: auto auto 1fr;
+			height: 100%;
+		}
+		header {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			align-items: center;
+			padding: 0.65rem 0.9rem;
+			background: var(--panel);
+			border-bottom: 1px solid var(--border);
+		}
+		header h1 {
+			font-size: 1rem;
+			font-weight: 600;
+			margin: 0;
+			letter-spacing: 0.02em;
+		}
+		header .meta {
+			color: var(--muted);
+			margin-right: auto;
+		}
+		button, label.file-btn, header a {
+			appearance: none;
+			border: 1px solid var(--border);
+			background: #1b212b;
+			color: var(--text);
+			padding: 0.35rem 0.7rem;
+			border-radius: 4px;
+			cursor: pointer;
+			font: inherit;
+			text-decoration: none;
+		}
+		header a:hover { border-color: var(--accent); }
+		input[type="file"] { display: none; }
+		#stage {
+			position: relative;
+			min-height: 0;
+		}
+		#stage.drag {
+			outline: 2px dashed var(--accent);
+			outline-offset: -8px;
+		}
+		canvas {
+			display: block;
+			width: 100%;
+			height: 100%;
+		}
+		#panels {
+			position: absolute;
+			top: 12px;
+			right: 12px;
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+			max-height: calc(100% - 24px);
+			overflow: auto;
+			z-index: 2;
+			pointer-events: none;
+		}
+		#panels:not([hidden]) { pointer-events: auto; }
+		.rig-panel {
+			background: rgba(20, 24, 31, 0.94);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 0.65rem 0.75rem 0.75rem;
+			box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+		}
+		.rig-panel-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 0.5rem;
+			margin-bottom: 0.55rem;
+		}
+		.rig-panel-role {
+			color: var(--muted);
+			font-size: 11px;
+		}
+		.rig-panel-body { display: flex; flex-direction: column; gap: 0.45rem; }
+		.rig-group {
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			margin: 0;
+			padding: 0.4rem 0.55rem 0.55rem;
+		}
+		.rig-group legend {
+			padding: 0 0.25rem;
+			color: var(--muted);
+			font-size: 11px;
+		}
+		.rig-group-col { display: flex; flex-direction: column; gap: 0.4rem; }
+		.rig-group-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+		.rig-ctrl {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 0.35rem 0.5rem;
+			align-items: center;
+		}
+		.rig-ctrl-label { color: var(--text); font-size: 12px; grid-column: 1 / -1; }
+		.rig-ctrl input[type="range"] { width: 140px; }
+		.rig-ctrl-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.5rem; text-align: right; }
+		.rig-action {
+			appearance: none;
+			border: 1px solid var(--border);
+			background: #1b212b;
+			color: var(--text);
+			padding: 0.35rem 0.7rem;
+			border-radius: 4px;
+			cursor: pointer;
+			font: inherit;
+		}
+		.rig-action:hover { border-color: var(--accent); }
+		.rig-panel-code { max-height: calc(100vh - 96px); display: flex; flex-direction: column; }
+		.rig-panel-code .rig-panel-body { flex: 1; min-height: 0; }
+		.rig-code-editor { display: flex; flex-direction: column; gap: 0.35rem; min-height: 0; flex: 1; }
+		.rig-code-meta { color: var(--muted); font-size: 11px; }
+		.rig-code-text {
+			width: 100%;
+			min-height: 280px;
+			height: min(52vh, 520px);
+			resize: vertical;
+			font: 12px/1.45 ui-monospace, Cascadia Code, Consolas, monospace;
+			tab-size: 4;
+			background: #0d1015;
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0.55rem 0.65rem;
+			white-space: pre;
+			overflow: auto;
+		}
+		.rig-code-text:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+		.rig-code-text:disabled { opacity: 0.6; }
+		#overlay {
+			position: absolute;
+			left: 12px;
+			bottom: 12px;
+			max-width: min(420px, 90%);
+			background: rgba(20, 24, 31, 0.92);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0.6rem 0.75rem;
+			color: var(--muted);
+			font-size: 12px;
+			pointer-events: none;
+			display: none;
+			z-index: 2;
+		}
+		#overlay strong { color: var(--text); }
+		#empty {
+			position: absolute;
+			inset: 0;
+			display: grid;
+			place-items: center;
+			color: var(--muted);
+			text-align: center;
+			padding: 2rem;
+			pointer-events: none;
+		}
+		#empty code {
+			color: var(--accent);
+			font-size: 0.95em;
+		}
+		#share-banner {
+			display: none;
+			padding: 0.45rem 0.9rem;
+			font-size: 12px;
+			border-bottom: 1px solid var(--border);
+			background: #1a222d;
+			color: var(--muted);
+		}
+		#share-banner:not([hidden]) { display: block; }
+		#share-banner[data-level="ok"] { color: var(--text); border-color: #2d4a3a; background: #142019; }
+		#share-banner[data-level="soft"] { color: #f0d9a8; border-color: #5a4a28; background: #2a2414; }
+		#share-banner[data-level="hard"] { color: #f0b4b4; border-color: #5a2828; background: #2a1414; }
+		header button:disabled { opacity: 0.45; cursor: not-allowed; }
+	</style>
+</head>
+<body>
+	<div id="app">
+		<header>
+			<h1>RigViewer</h1>
+			<span class="meta" id="status">Drop a Rig document, or Open a file</span>
+			<label class="file-btn">Open<input id="file" type="file" accept=".json,.rig,application/json" /></label>
+			<button type="button" id="btn-copy-link" title="Copy a ?doc= link for small sketches">Copy link</button>
+			<button type="button" id="btn-save-local" title="Save current document in this browser">Save local</button>
+			<button type="button" id="btn-restore-local" hidden title="Restore last local sketch">Restore</button>
+			<a id="download-single" href="rigviewer.html">Single-file HTML</a>
+			<a href="?src=/examples/demo-3d.json">3D demo</a>
+			<a href="?src=/examples/demo-gleditor.json">glEditor</a>
+			<a href="?src=/examples/minimal-scene.json">2D scene</a>
+			<a href="?src=/examples/ui-panel.json">UI panel</a>
+			<a href="?src=/examples/lfo-binding.json">LFO</a>
+			<a href="?src=/examples/portable-tool.json">Portable tool</a>
+		</header>
+		<div id="share-banner" hidden data-level=""></div>
+		<div id="stage">
+			<canvas id="view"></canvas>
+			<div id="panels" hidden></div>
+			<div id="empty">
+				<div>
+					<p>Loading scene preview…</p>
+					<p>Or drop a <code>.json</code> / <code>.rig</code> here, or use <strong>Open</strong>.</p>
+				</div>
+			</div>
+			<div id="overlay"></div>
+		</div>
+	</div>
+	<script type="module" src="./app.mjs"></script>
+</body>
+</html>
