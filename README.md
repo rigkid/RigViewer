@@ -6,9 +6,9 @@ Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents.
 
 The `.json` files are **data**. The **scene preview** is this viewer (shapes drawn in a browser / desktop window).
 
-![preview](examples/demo-3d.png)
-
 ## Preview the scene (right now)
+
+![preview](examples/demo-3d.png)
 
 [Open Scene Right Now](https://rigkid.github.io/RigViewer/)
 
