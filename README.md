@@ -1,6 +1,6 @@
 # RigViewer
 
-![preview](examples/preview.png)
+![preview](examples/demo-3d.png)
 
 Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents.
 
