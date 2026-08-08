@@ -10,6 +10,8 @@ The `.json` files are **data**. The **scene preview** is this viewer (shapes dra
 
 ## Preview the scene (right now)
 
+[Open Scene Right Now](https://rigkid.github.io/RigViewer/)
+
 ```bash
 cd D:\repos\RigViewer
 npm run serve
