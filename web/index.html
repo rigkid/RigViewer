@@ -26,7 +26,11 @@
 		[hidden] { display: none !important; }
 		html, body {
 			margin: 0;
+			width: 100%;
 			height: 100%;
+			height: 100dvh;
+			overflow: hidden;
+			overscroll-behavior: none;
 			background: var(--bg);
 			color: var(--text);
 			font: 14px/1.4 system-ui, Segoe UI, sans-serif;
@@ -34,7 +38,10 @@
 		#app {
 			display: grid;
 			grid-template-rows: auto 1fr;
+			width: 100%;
 			height: 100%;
+			min-width: 0;
+			overflow: hidden;
 		}
 		/* ?embed=1 — stage only (for iframes on RigWorks / marketing pages). */
 		html.embed #app { grid-template-rows: 1fr; }
@@ -48,6 +55,8 @@
 			background: var(--panel);
 			border-bottom: 1px solid var(--border);
 			font-size: 13px;
+			min-width: 0;
+			max-width: 100%;
 		}
 		header h1 {
 			display: flex;
@@ -127,16 +136,25 @@
 		input[type="file"] { display: none; }
 		#stage {
 			position: relative;
+			min-width: 0;
 			min-height: 0;
+			overflow: hidden;
 		}
 		#stage.drag {
 			outline: 2px dashed var(--accent);
 			outline-offset: -8px;
 		}
 		canvas {
+			/* Fill the stage by inset so % height never collapses to 0 on phones
+			   (percentage chains break when the only in-flow child has no definite size). */
+			position: absolute;
+			inset: 0;
 			display: block;
 			width: 100%;
 			height: 100%;
+			/* Orbit / pan own the gesture; do not let the page (or parent iframe
+			   host) steal vertical touch drags for scroll. */
+			touch-action: none;
 		}
 		#panels {
 			position: absolute;
@@ -145,6 +163,7 @@
 			display: flex;
 			flex-direction: column;
 			gap: 0.75rem;
+			max-width: calc(100% - 24px);
 			max-height: calc(100% - 24px);
 			overflow: auto;
 			z-index: 2;
@@ -162,7 +181,8 @@
 			box-shadow: 0 4px 14px rgba(0,0,0,0.28);
 			resize: both;
 			overflow: auto;
-			min-width: 240px;
+			min-width: min(240px, 100%);
+			max-width: 100%;
 			display: flex;
 			flex-direction: column;
 		}
@@ -505,6 +525,81 @@
 		.banner-close:hover { opacity: 1; }
 		#share-banner[data-level="soft"] { color: #f0d9a8; border-color: #5a4a28; background: rgba(42, 36, 20, 0.88); }
 		#share-banner[data-level="hard"] { color: #f0b4b4; border-color: #5a2828; background: rgba(42, 20, 20, 0.88); }
+
+		/* Phone / narrow: fill the viewport, dock chrome, no forced desktop widths. */
+		@media (max-width: 640px) {
+			#app > header {
+				flex-wrap: wrap;
+				row-gap: 0.1rem;
+				padding: 0.2rem 0.4rem;
+			}
+			header h1 { margin-right: 0.25rem; }
+			header .meta {
+				order: 10;
+				flex: 1 0 100%;
+				margin: 0;
+				font-size: 11px;
+			}
+			.menu-items {
+				position: fixed;
+				left: 8px;
+				right: 8px;
+				top: 2.75rem;
+				min-width: 0;
+				width: auto;
+				max-height: min(70vh, 420px);
+				overflow: auto;
+				z-index: 50;
+			}
+			.rig-panel {
+				min-width: 0;
+				width: 100% !important;
+				max-width: 100%;
+				resize: none;
+			}
+			.rig-ctrl input[type="range"] { width: 100%; min-width: 0; }
+			.rig-ctrl {
+				grid-template-columns: 1fr auto;
+			}
+			#panels {
+				top: auto;
+				left: 8px;
+				right: 8px;
+				bottom: 8px;
+				max-width: none;
+				max-height: 42%;
+				width: auto;
+			}
+			#panels.code-overlay {
+				top: auto;
+				left: 8px;
+				right: 8px;
+				bottom: 8px;
+				width: auto;
+				max-height: 42%;
+			}
+			#info-panel,
+			#prefs-panel {
+				top: 8px;
+				left: 8px;
+				right: 8px;
+				width: auto;
+				max-width: none;
+			}
+			#issues-panel {
+				bottom: 8px;
+				left: 8px;
+				right: 8px;
+				width: auto;
+				max-width: none;
+				max-height: 40%;
+			}
+			.rig-edit {
+				min-height: 160px;
+				height: min(36vh, 280px);
+			}
+			.rig-panel-code { max-height: none; }
+		}
 	</style>
 </head>
 <body>

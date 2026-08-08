@@ -334,9 +334,11 @@ export function mountUiPanels(host, parsed, opts = {}) {
 		const width = isCodePanel
 			? Math.max(panel.preferredWidth || 0, 420)
 			: panel.preferredWidth || 320;
+		// Cap against the viewport — min(100%, …) is a no-op when the parent
+		// (#panels) sizes to its children, which is what forced a desktop min width on phones.
 		const card = el("section", {
 			className: "rig-panel" + (isCodePanel ? " rig-panel-code" : ""),
-			style: `width:min(100%,${width}px)`,
+			style: `width:min(calc(100vw - 24px),${width}px)`,
 		});
 		const head = el("header", { className: "rig-panel-head" }, [
 			el("span", { className: "rig-caret", text: "▾" }),
@@ -405,7 +407,7 @@ export function mountUiPanels(host, parsed, opts = {}) {
 	if (hasCodes && !visiblePanels.some((p) => p.role === "media.code" || /code/i.test(p.role || ""))) {
 		const card = el("section", {
 			className: "rig-panel rig-panel-code",
-			style: "width:min(100%,420px)",
+			style: "width:min(calc(100vw - 24px),420px)",
 		});
 		const head = el("header", { className: "rig-panel-head" }, [
 			el("span", { className: "rig-caret", text: "▾" }),

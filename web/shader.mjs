@@ -114,8 +114,11 @@ export function mountShaderPreview(canvas, parsed) {
 
 	function resize() {
 		const dpr = Math.min(window.devicePixelRatio || 1, 2);
-		const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-		const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+		const rect = canvas.getBoundingClientRect();
+		const cssW = Math.floor(rect.width) || canvas.clientWidth || window.innerWidth || 1;
+		const cssH = Math.floor(rect.height) || canvas.clientHeight || Math.floor(window.innerHeight * 0.7) || 1;
+		const w = Math.max(1, Math.floor(cssW * dpr));
+		const h = Math.max(1, Math.floor(cssH * dpr));
 		if (canvas.width !== w || canvas.height !== h) {
 			canvas.width = w;
 			canvas.height = h;

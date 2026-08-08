@@ -128,6 +128,20 @@ function ensureEntityGroup(map, root, id) {
 	return g;
 }
 
+/** CSS pixel size of the drawing surface — never invent a desktop fallback. */
+function canvasCssSize(canvas) {
+	const stage = canvas.parentElement;
+	const rect = canvas.getBoundingClientRect();
+	let width = Math.floor(rect.width) || canvas.clientWidth || stage?.clientWidth || 0;
+	let height = Math.floor(rect.height) || canvas.clientHeight || stage?.clientHeight || 0;
+	if (width < 2 || height < 2) {
+		const vr = window.visualViewport;
+		width = Math.max(2, Math.floor(vr?.width || window.innerWidth || 2));
+		height = Math.max(2, Math.floor((vr?.height || window.innerHeight || 2) * 0.7));
+	}
+	return { width, height };
+}
+
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {ReturnType<typeof parseDocument>} parsed
@@ -315,8 +329,8 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 	}
 
 	function resize() {
-		const width = canvas.clientWidth || canvas.parentElement?.clientWidth || 800;
-		const height = canvas.clientHeight || canvas.parentElement?.clientHeight || 600;
+		const { width, height } = canvasCssSize(canvas);
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 		renderer.setSize(width, height, false);
 		if (camera.isPerspectiveCamera) {
 			camera.aspect = width / Math.max(1, height);
@@ -339,13 +353,16 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 	}
 
 	resize();
+	// Second pass after layout settles (mobile URL bar / font metrics / flex wrap).
+	requestAnimationFrame(() => requestAnimationFrame(resize));
 	const onResize = () => resize();
 	window.addEventListener("resize", onResize);
+	window.visualViewport?.addEventListener("resize", onResize);
 	// The canvas can change size without a window resize (banner shows/hides,
-	// header wraps, panel layout) — track the element itself so the buffer and
+	// header wraps, panel layout) — track the stage so the buffer and
 	// camera aspect never drift from the CSS size (which reads as stretching).
 	const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
-	ro?.observe(canvas);
+	ro?.observe(canvas.parentElement || canvas);
 
 	const hasMods = (parsed.lfos?.length || 0) > 0;
 	const t0 = performance.now();
@@ -396,6 +413,7 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 		dispose() {
 			cancelAnimationFrame(raf);
 			window.removeEventListener("resize", onResize);
+			window.visualViewport?.removeEventListener("resize", onResize);
 			ro?.disconnect();
 			controls?.dispose?.();
 			renderer.dispose();
@@ -414,8 +432,7 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 }
 
 function fitOrtho(camera, canvas, bounds, pad) {
-	const width = canvas.clientWidth || 800;
-	const height = canvas.clientHeight || 600;
+	const { width, height } = canvasCssSize(canvas);
 	const aspect = width / Math.max(1, height);
 	const { minX, minY, maxX, maxY } = bounds;
 	const cx = (minX + maxX) / 2;
@@ -436,8 +453,7 @@ function fitOrtho(camera, canvas, bounds, pad) {
 }
 
 function fitOrthoHeight(camera, canvas, cx, cy, orthoHeight) {
-	const width = canvas.clientWidth || 800;
-	const height = canvas.clientHeight || 600;
+	const { width, height } = canvasCssSize(canvas);
 	const aspect = width / Math.max(1, height);
 	const halfH = Math.max(1, orthoHeight) / 2;
 	const halfW = halfH * aspect;
@@ -451,8 +467,7 @@ function fitOrthoHeight(camera, canvas, cx, cy, orthoHeight) {
 }
 
 function refitOrthoAspect(camera, canvas) {
-	const width = canvas.clientWidth || 800;
-	const height = canvas.clientHeight || 600;
+	const { width, height } = canvasCssSize(canvas);
 	const aspect = width / Math.max(1, height);
 	const halfH = (camera.top - camera.bottom) / 2;
 	const halfW = halfH * aspect;
@@ -584,6 +599,9 @@ function makeOrbit(camera, canvas, target, onInteract) {
 			e.preventDefault();
 			mode = "pan";
 		} else if (e.button === 0) {
+			// Touch + left mouse both report button 0. Claim the gesture so the
+			// page (and parent page, when embedded) cannot scroll instead of orbit.
+			e.preventDefault();
 			mode = "orbit";
 		} else {
 			return;
@@ -592,8 +610,13 @@ function makeOrbit(camera, canvas, target, onInteract) {
 		lastY = e.clientY;
 		canvas.setPointerCapture?.(e.pointerId);
 	};
-	const onUp = () => {
+	const onUp = (e) => {
 		mode = null;
+		try {
+			canvas.releasePointerCapture?.(e.pointerId);
+		} catch {
+			/* ignore */
+		}
 	};
 	const onMove = (e) => {
 		if (!mode) return;
@@ -630,9 +653,13 @@ function makeOrbit(camera, canvas, target, onInteract) {
 		camera.lookAt(target);
 		onInteract?.();
 	};
+	// Without this, mobile browsers treat vertical drags as page scroll and the
+	// orbit never starts — especially painful inside a marketing-page iframe.
+	canvas.style.touchAction = "none";
 	canvas.addEventListener("pointerdown", onDown);
-	window.addEventListener("pointerup", onUp);
-	window.addEventListener("pointermove", onMove);
+	canvas.addEventListener("pointerup", onUp);
+	canvas.addEventListener("pointercancel", onUp);
+	canvas.addEventListener("pointermove", onMove);
 	canvas.addEventListener("wheel", onWheel, { passive: false });
 	return {
 		update() {},
@@ -643,8 +670,9 @@ function makeOrbit(camera, canvas, target, onInteract) {
 		},
 		dispose() {
 			canvas.removeEventListener("pointerdown", onDown);
-			window.removeEventListener("pointerup", onUp);
-			window.removeEventListener("pointermove", onMove);
+			canvas.removeEventListener("pointerup", onUp);
+			canvas.removeEventListener("pointercancel", onUp);
+			canvas.removeEventListener("pointermove", onMove);
 			canvas.removeEventListener("wheel", onWheel);
 		},
 	};
