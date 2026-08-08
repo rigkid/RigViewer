@@ -41,10 +41,26 @@ Local preview:
 
 ```
 npm run serve
-http://127.0.0.1:<port>/web/?src=/examples/minimal-scene.json
+http://127.0.0.1:<port>/web/?src=examples/minimal-scene.json
 http://127.0.0.1:<port>/web/?doc=u1.<payload>
 http://127.0.0.1:<port>/web/?local=1
+http://127.0.0.1:<port>/web/?embed=1&src=examples/demo-3d.json
 ```
+
+## Embed (RigWorks / marketing)
+
+`?embed=1` (or `true`) hides the host menu bar — brand / File / View / Examples / status — so the stage fills the frame. Document UI panels still show. Combine with `?src=` or `?doc=`:
+
+```html
+<iframe
+  src="https://rigkid.github.io/RigViewer/?embed=1&src=examples/demo-3d.json"
+  title="RigViewer"
+  style="width:100%;height:420px;border:0;border-radius:8px;background:#0b0d10"
+  allow="fullscreen"
+></iframe>
+```
+
+Use relative `src=examples/…` on the Pages host (project sites are not at `/`). Absolute `?src=https://…` works from any parent origin.
 
 ## UI chrome
 

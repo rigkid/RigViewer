@@ -4,6 +4,13 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>RigViewer</title>
+	<script>
+		/* Apply before paint so embed iframes never flash the menu bar. */
+		(function () {
+			var e = new URLSearchParams(location.search).get("embed");
+			if (e === "1" || e === "true") document.documentElement.classList.add("embed");
+		})();
+	</script>
 	<style>
 		:root {
 			color-scheme: dark;
@@ -29,8 +36,11 @@
 			grid-template-rows: auto 1fr;
 			height: 100%;
 		}
+		/* ?embed=1 — stage only (for iframes on RigWorks / marketing pages). */
+		html.embed #app { grid-template-rows: 1fr; }
+		html.embed #app > header { display: none; }
 		/* Thin menu bar: brand, File / Examples menus, status. */
-		header {
+		#app > header {
 			display: flex;
 			align-items: center;
 			gap: 0.15rem;
@@ -492,12 +502,12 @@
 			<details class="menu" id="menu-examples">
 				<summary>Examples</summary>
 				<div class="menu-items">
-					<a class="menu-item" href="?src=/examples/demo-3d.json">3D demo</a>
-					<a class="menu-item" href="?src=/examples/demo-gleditor.json">glEditor</a>
-					<a class="menu-item" href="?src=/examples/minimal-scene.json">2D scene</a>
-					<a class="menu-item" href="?src=/examples/ui-panel.json">UI panel</a>
-					<a class="menu-item" href="?src=/examples/lfo-binding.json">LFO</a>
-					<a class="menu-item" href="?src=/examples/portable-tool.json">Portable tool</a>
+					<a class="menu-item" href="?src=examples/demo-3d.json">3D demo</a>
+					<a class="menu-item" href="?src=examples/demo-gleditor.json">glEditor</a>
+					<a class="menu-item" href="?src=examples/minimal-scene.json">2D scene</a>
+					<a class="menu-item" href="?src=examples/ui-panel.json">UI panel</a>
+					<a class="menu-item" href="?src=examples/lfo-binding.json">LFO</a>
+					<a class="menu-item" href="?src=examples/portable-tool.json">Portable tool</a>
 				</div>
 			</details>
 			<span class="meta" id="status">Drop a Rig document, or File → Open</span>

@@ -421,6 +421,11 @@ refreshLocalButton();
 const params = new URLSearchParams(location.search);
 const docParam = params.get("doc");
 const src = params.get("src");
+const embed =
+	params.get("embed") === "1" ||
+	params.get("embed") === "true" ||
+	document.documentElement.classList.contains("embed");
+if (embed) document.documentElement.classList.add("embed");
 if (src) {
 	for (const a of document.querySelectorAll("#menu-examples a")) {
 		const q = a.getAttribute("href")?.split("?")[1] || "";
@@ -430,11 +435,14 @@ if (src) {
 	}
 }
 const wantLocal = params.get("local") === "1" || params.get("local") === "true";
-const demoUrls = [
-	"/examples/demo-3d.json",
-	"../examples/demo-3d.json",
-	"examples/demo-3d.json",
-];
+
+// The site can live at a domain root or under a project prefix (github.io/RigViewer/),
+// so relative candidates come first; "../" covers local dev serving the page at /web/.
+function srcCandidates(s) {
+	if (/^([a-z]+:)?\/\//i.test(s) || s.startsWith("/")) return [s];
+	return [s, "../" + s];
+}
+const demoUrls = srcCandidates("examples/demo-3d.json");
 
 if (docParam) {
 	status.textContent = "Decoding ?doc=…";
@@ -460,7 +468,7 @@ if (docParam) {
 	}
 } else if (src) {
 	status.textContent = `Fetching ${src}…`;
-	const ok = await tryFetch([src]);
+	const ok = await tryFetch(srcCandidates(src));
 	if (!ok) status.textContent = `Fetch failed: ${src}`;
 	else setShareBanner("ok", "Loaded via ?src= (good for larger documents).");
 } else if (wantLocal) {

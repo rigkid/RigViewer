@@ -14,11 +14,12 @@
 ## Preview URLs
 
 ```
-https://viewer.rigs.works/?src=/examples/demo-3d.json
-https://viewer.rigs.works/web/?src=/examples/demo-3d.json
+https://viewer.rigs.works/?src=examples/demo-3d.json
+https://viewer.rigs.works/web/?src=examples/demo-3d.json
 https://viewer.rigs.works/?src=https://raw.githubusercontent.com/<org>/<repo>/<ref>/path/doc.json
 https://viewer.rigs.works/?doc=u1.<base64url>   # small sketches only (see docs/ai-share.md)
 https://viewer.rigs.works/?local=1              # restore browser-local save
+https://viewer.rigs.works/?embed=1&src=examples/demo-3d.json  # no menu bar (iframe / RigWorks)
 ```
 
 Hosted site serves the viewer at `/` and mirrors it under `/web/` (local `npm run serve` uses `/web/`).
