@@ -55,7 +55,7 @@ void drawControl(ContractImportResult& doc, rigkit::MEcs& ecs, float timeSec,
 	const char* label = ctrl.name.empty() ? ctrl.id.c_str() : ctrl.name.c_str();
 
 	if (widget == "color" || ctrl.type == "vec4" || ctrl.propertyKey == "rgba") {
-		auto rgba = contractGetRgba(doc, ctrl.target, ctrl.propertyKey)
+		auto rgba = contractGetRgba(ecs, doc, ctrl.target, ctrl.propertyKey)
 						.value_or(std::array<float, 4>{1.f, 1.f, 1.f, 1.f});
 		float col[4] = {rgba[0], rgba[1], rgba[2], rgba[3]};
 		ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar;
@@ -63,11 +63,11 @@ void drawControl(ContractImportResult& doc, rigkit::MEcs& ecs, float timeSec,
 			flags |= ImGuiColorEditFlags_NoPicker;
 		}
 		if (ImGui::ColorEdit4(label, col, flags) && !readOnly) {
-			contractSetRgba(doc, ecs, ctrl.target, ctrl.propertyKey,
+			contractSetRgba(ecs, doc, ctrl.target, ctrl.propertyKey,
 							{col[0], col[1], col[2], col[3]});
 		}
 	} else if (widget == "dropdown" || ctrl.type == "enum") {
-		auto cur = contractGetString(doc, ctrl.target, ctrl.propertyKey).value_or("");
+		auto cur = contractGetString(ecs, doc, ctrl.target, ctrl.propertyKey).value_or("");
 		int idx = 0;
 		for (int i = 0; i < static_cast<int>(ctrl.options.size()); ++i) {
 			if (ctrl.options[static_cast<size_t>(i)] == cur) {
@@ -82,7 +82,7 @@ void drawControl(ContractImportResult& doc, rigkit::MEcs& ecs, float timeSec,
 				const bool selected = i == idx;
 				if (ImGui::Selectable(ctrl.options[static_cast<size_t>(i)].c_str(), selected) &&
 					!readOnly) {
-					contractSetString(doc, ctrl.target, ctrl.propertyKey,
+					contractSetString(ecs, doc, ctrl.target, ctrl.propertyKey,
 									  ctrl.options[static_cast<size_t>(i)]);
 				}
 				if (selected) {
@@ -92,31 +92,31 @@ void drawControl(ContractImportResult& doc, rigkit::MEcs& ecs, float timeSec,
 			ImGui::EndCombo();
 		}
 	} else if (widget == "toggle" || ctrl.type == "bool") {
-		float v = contractGetFloat(doc, ctrl.target, ctrl.propertyKey).value_or(0.f);
+		float v = contractGetFloat(ecs, doc, ctrl.target, ctrl.propertyKey).value_or(0.f);
 		bool on = v != 0.f;
 		if (ImGui::Checkbox(label, &on) && !readOnly) {
-			contractSetFloat(doc, ecs, ctrl.target, ctrl.propertyKey, on ? 1.f : 0.f);
+			contractSetFloat(ecs, doc, ctrl.target, ctrl.propertyKey, on ? 1.f : 0.f);
 		}
 	} else if (widget == "slider" || widget == "knob" || ctrl.type == "float" ||
 			   ctrl.type == "int") {
 		float min = ctrl.min.value_or(0.f);
 		float max = ctrl.max.value_or(1.f);
-		float v = contractGetFloat(doc, ctrl.target, ctrl.propertyKey).value_or(min);
+		float v = contractGetFloat(ecs, doc, ctrl.target, ctrl.propertyKey).value_or(min);
 		if (ctrl.type == "int") {
 			int iv = static_cast<int>(v);
 			if (ImGui::SliderInt(label, &iv, static_cast<int>(min), static_cast<int>(max)) &&
 				!readOnly) {
-				contractSetFloat(doc, ecs, ctrl.target, ctrl.propertyKey, static_cast<float>(iv));
+				contractSetFloat(ecs, doc, ctrl.target, ctrl.propertyKey, static_cast<float>(iv));
 			}
 		} else {
 			if (ImGui::SliderFloat(label, &v, min, max) && !readOnly) {
-				contractSetFloat(doc, ecs, ctrl.target, ctrl.propertyKey, v);
+				contractSetFloat(ecs, doc, ctrl.target, ctrl.propertyKey, v);
 			}
 		}
 	} else {
-		float v = contractGetFloat(doc, ctrl.target, ctrl.propertyKey).value_or(0.f);
+		float v = contractGetFloat(ecs, doc, ctrl.target, ctrl.propertyKey).value_or(0.f);
 		if (ImGui::InputFloat(label, &v) && !readOnly) {
-			contractSetFloat(doc, ecs, ctrl.target, ctrl.propertyKey, v);
+			contractSetFloat(ecs, doc, ctrl.target, ctrl.propertyKey, v);
 		}
 	}
 
@@ -126,14 +126,14 @@ void drawControl(ContractImportResult& doc, rigkit::MEcs& ecs, float timeSec,
 	}
 }
 
-void drawAction(ContractImportResult& doc, float timeSec, const ContractImportResult::Action& act) {
+void drawAction(ContractImportResult& doc, rigkit::MEcs& ecs, const ContractImportResult::Action& act) {
 	if (!act.enabled) {
 		ImGui::BeginDisabled();
 	}
 	ImGui::PushID(act.id.c_str());
 	const char* label = act.name.empty() ? act.actionId.c_str() : act.name.c_str();
 	if (ImGui::Button(label)) {
-		contractRunAction(doc, act.actionId, timeSec);
+		contractRunAction(ecs, doc, act.actionId);
 	}
 	ImGui::PopID();
 	if (!act.enabled) {
@@ -178,7 +178,7 @@ void appendItems(ContractImportResult& doc, rigkit::MEcs& ecs, float timeSec,
 
 	for (const auto& it : items) {
 		if (it.isAction) {
-			drawAction(doc, timeSec, *static_cast<const ContractImportResult::Action*>(it.ptr));
+			drawAction(doc, ecs, *static_cast<const ContractImportResult::Action*>(it.ptr));
 		} else {
 			drawControl(doc, ecs, timeSec,
 						*static_cast<const ContractImportResult::Control*>(it.ptr));

@@ -8,6 +8,7 @@ Copies of [RigWorks](https://github.com/rigkid/RigWorks) example documents plus 
 |------|------|
 | `minimal-scene.json` | 2D specimen + orthographic camera (pan/zoom) |
 | `demo-3d.json` | Perspective camera, meshes, materials, lights (orbit) |
+| `demo-solar.json` | `rig.geometry.sphere` primitives, point lights, LFO orbit bindings — try the Preferences → Sphere resolution setting here |
 | `demo-gleditor.json` | `rig.media.code` GLSL buffers (gradient + plasma) shader preview + code editor |
 | `lfo-binding.json` | LFO → transform binding |
 | `ui-panel.json` / `portable-tool.json` | UI panel + paint.solid |

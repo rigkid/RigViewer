@@ -3,9 +3,9 @@
  * No Three.js — safe to import from Node smoke tests.
  *
  * SUDE mapping for the web fulfillment:
- *   Setup — parseEnvelope / load JSON
- *   Draw  — expandDrawables (geometry + paint + world transform)
- *   (no Update — still frame unless the host animates)
+ *   Setup  — parseEnvelope / load JSON
+ *   Update — updateModulators (LFO phase + bindings via setProperty)
+ *   Draw   — expandDrawables (geometry + paint + world transform)
  */
 
 const KNOWN_PASS = new Set([
@@ -28,6 +28,7 @@ const KNOWN_PASS = new Set([
 	"rig.geometry.ring",
 	"rig.geometry.path",
 	"rig.geometry.mesh",
+	"rig.geometry.sphere",
 	"rig.mod.lfo",
 	"rig.mod.binding",
 	"rig.paint.solid",
@@ -51,6 +52,7 @@ const GEOMETRY_KEYS = [
 	"rig.geometry.ring",
 	"rig.geometry.path",
 	"rig.geometry.mesh",
+	"rig.geometry.sphere",
 ];
 
 function comps(e) {
@@ -601,6 +603,26 @@ export function parseDocument(doc) {
 				materialId: c["rig.render.material"] ? e.id : null,
 			});
 		}
+
+		if (c["rig.geometry.sphere"]) {
+			const sph = c["rig.geometry.sphere"];
+			const radius = sph.radius ?? 1;
+			expand(wx - radius, wy - radius, wz - radius);
+			expand(wx + radius, wy + radius, wz + radius);
+			geometryCount++;
+			drawables.push({
+				id: e.id,
+				name,
+				kind: "sphere",
+				radius,
+				// Explicit per-entity override; falls back to the viewer's
+				// sphere-resolution preference when omitted (tessellated on present).
+				widthSegments: sph.widthSegments ?? null,
+				heightSegments: sph.heightSegments ?? null,
+				paint,
+				materialId: c["rig.render.material"] ? e.id : null,
+			});
+		}
 	}
 
 	// Include binding clamps in framing so animated travel stays on screen.
@@ -677,17 +699,11 @@ export function parseDocument(doc) {
 	};
 }
 
-/** @returns {number} LFO sample at @p timeSec (Hz * t + phase). */
-export function sampleLfo(lfo, timeSec) {
-	const freq = lfo.frequency ?? 0;
+/** @returns {number} Waveform sample from LFO phase (0–1 wrap). */
+export function sampleLfo(lfo) {
 	const amp = lfo.amplitude ?? 1;
 	const offset = lfo.offset ?? 0;
-	const phase0 = lfo.phase ?? 0;
-	// Prefer the accumulated cycle count (kept by tickModulators): it stays
-	// phase-continuous when frequency changes mid-run. `t * freq` would rescale
-	// all elapsed time and make the output jump on every slider move.
-	const t = (lfo._cycles ?? timeSec * freq) + phase0;
-	const frac = t - Math.floor(t);
+	const frac = (lfo.phase ?? 0) - Math.floor(lfo.phase ?? 0);
 	let w = 0;
 	switch (lfo.waveform || "sine") {
 		case "tri":
@@ -783,11 +799,11 @@ export function setProperty(state, entityId, propertyKey, value) {
 }
 
 /** Fulfill shared action ids used by examples. */
-export function runAction(state, actionId, timeSec = 0) {
+export function runAction(state, actionId) {
 	if (actionId === "lfo.resetPhase") {
 		for (const lfo of state.lfos || []) {
-			// Zero the instantaneous phase: cycles + phase ≡ 0 (mod 1)
-			lfo.phase = -(lfo._cycles ?? timeSec * (lfo.frequency ?? 0));
+			lfo.phase = 0;
+			lfo.lastSample = sampleLfo(lfo);
 		}
 		return true;
 	}
@@ -795,36 +811,31 @@ export function runAction(state, actionId, timeSec = 0) {
 }
 
 /**
- * Update-side: sample LFOs and write bindings into @p transforms (mutates).
- * @param {{ lfos: object[], bindings: object[], transforms: Record<string, {position:number[]}> }} state
+ * Update-side (web twin of SModulators): advance LFO phase by dt, write bindings
+ * through setProperty — never a free sim over a side-table of hardcoded keys.
+ * @param {{ lfos?: object[], bindings?: object[], transforms?: object, paints?: object }} state
+ * @param {number} dt seconds since last Update
  */
-export function tickModulators(state, timeSec) {
-	const samples = new Map();
+export function updateModulators(state, dt) {
+	const step = Math.max(0, dt ?? 0);
 	for (const lfo of state.lfos || []) {
-		// Integrate cycles so frequency edits are phase-continuous.
-		const dt = lfo._t == null ? timeSec : Math.max(0, timeSec - lfo._t);
-		lfo._t = timeSec;
-		lfo._cycles = (lfo._cycles ?? 0) + dt * (lfo.frequency ?? 0);
-		samples.set(lfo.id, sampleLfo(lfo, timeSec));
+		const freq = Math.max(0, lfo.frequency ?? 0);
+		lfo.phase = (lfo.phase ?? 0) + step * freq;
+		lfo.phase = lfo.phase - Math.floor(lfo.phase);
+		lfo.lastSample = sampleLfo(lfo);
 	}
 	for (const b of state.bindings || []) {
-		if (!samples.has(b.source)) continue;
-		let v = samples.get(b.source) * (b.depth ?? 1);
+		const lfo = (state.lfos || []).find((l) => l.id === b.source);
+		if (!lfo) continue;
+		let v = (lfo.lastSample ?? 0) * (b.depth ?? 1);
 		if (b.min != null && Number.isFinite(b.min)) v = Math.max(b.min, v);
 		if (b.max != null && Number.isFinite(b.max)) v = Math.min(b.max, v);
-		const tr = state.transforms?.[b.target];
-		if (!tr?.position) continue;
-		const key = b.propertyKey || "";
-		const additive = !!b.additive;
-		if (key === "position.x") tr.position[0] = additive ? tr.position[0] + v : v;
-		else if (key === "position.y") tr.position[1] = additive ? tr.position[1] + v : v;
-		else if (key === "position.z") tr.position[2] = additive ? tr.position[2] + v : v;
-		else if (key === "scale.x") tr.scale[0] = additive ? tr.scale[0] + v : v;
-		else if (key === "scale.y") tr.scale[1] = additive ? tr.scale[1] + v : v;
-		else if (key === "scale.z") tr.scale[2] = additive ? tr.scale[2] + v : v;
-		else setProperty(state, b.target, key, additive ? (getProperty(state, b.target, key) ?? 0) + v : v);
+		if (b.additive) {
+			const cur = getProperty(state, b.target, b.propertyKey);
+			if (typeof cur === "number") v = cur + v;
+		}
+		setProperty(state, b.target, b.propertyKey || "", v);
 	}
-	return samples;
 }
 
 export function parseDocumentText(text) {

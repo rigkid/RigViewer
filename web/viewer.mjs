@@ -1,13 +1,13 @@
 /**
  * Three.js Draw fulfillment over parseDocument output.
  * Rig 2D is Y-down; the scene root is Y-flipped for orthographic framing.
- * Update-side: sampleLfo / tickModulators drive bound transforms each frame.
+ * Update-side: updateModulators (web twin of SModulators) drives bindings each frame.
  */
 import * as THREE from "./vendor/three.module.js";
-import { parseDocument, parseDocumentText, tickModulators, sampleLfo } from "./parse.mjs";
+import { parseDocument, parseDocumentText, updateModulators } from "./parse.mjs";
 import { mountShaderPreview, documentWantsShaderPreview } from "./shader.mjs";
 
-export { parseDocument, parseDocumentText, tickModulators, sampleLfo, documentWantsShaderPreview };
+export { parseDocument, parseDocumentText, updateModulators, documentWantsShaderPreview };
 
 function colorFromRgba(arr, fallback = 0xffffff) {
 	if (!arr || arr.length < 3) return new THREE.Color(fallback);
@@ -52,10 +52,18 @@ function meshGeometry(drawable) {
 	return geo;
 }
 
+function sphereGeometry(radius, widthSegments, heightSegments) {
+	const w = Math.max(3, Math.round(widthSegments));
+	const h = Math.max(2, Math.round(heightSegments));
+	return new THREE.SphereGeometry(radius ?? 1, w, h);
+}
+
 function meshMaterial(drawable, parsed, lit, shading = "auto") {
 	const matData = drawable.materialId ? parsed.materials?.[drawable.materialId] : null;
-	// Contract default: no authored normals = flat (face) shading.
-	const flat = shading === "flat" || (shading === "auto" && !drawable.normals);
+	// Contract default: no authored normals = flat (face) shading. Procedural
+	// primitives (sphere) always carry correct smooth normals, so "auto" rounds them.
+	const flat =
+		shading === "flat" || (shading === "auto" && drawable.kind !== "sphere" && !drawable.normals);
 	if (lit || matData) {
 		const albedo = matData?.albedoRgb || drawable.paint?.fillRgba || [0.75, 0.75, 0.8];
 		const emissive = matData?.emissive || [0, 0, 0];
@@ -145,7 +153,7 @@ function canvasCssSize(canvas) {
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {ReturnType<typeof parseDocument>} parsed
- * @param {{ shading?: "auto" | "flat" | "smooth" }} [prefs]
+ * @param {{ shading?: "auto" | "flat" | "smooth", sphereResolution?: number }} [prefs]
  */
 export function mountViewer(canvas, parsed, prefs = {}) {
 	// glEditor-style buffers: fullscreen Shadertoy preview (no mesh scene).
@@ -210,6 +218,14 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 				const lit = isPersp && (parsed.lights?.length > 0 || d.materialId);
 				group.add(new THREE.Mesh(geo, meshMaterial(d, parsed, lit, prefs.shading || "auto")));
 			}
+		} else if (d.kind === "sphere") {
+			// Explicit per-entity segments win; otherwise fall back to the
+			// viewer's default sphere-resolution preference (tessellated on present).
+			const w = d.widthSegments ?? prefs.sphereResolution ?? 24;
+			const h = d.heightSegments ?? Math.max(3, Math.round(w / 2));
+			const geo = sphereGeometry(d.radius, w, h);
+			const lit = isPersp && (parsed.lights?.length > 0 || d.materialId);
+			group.add(new THREE.Mesh(geo, meshMaterial(d, parsed, lit, prefs.shading || "auto")));
 		}
 	}
 
@@ -366,42 +382,34 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 
 	const hasMods = (parsed.lfos?.length || 0) > 0;
 	const t0 = performance.now();
-	const getTime = () => (performance.now() - t0) / 1000;
+	let lastT = 0;
 	let raf = 0;
 	const tick = () => {
 		raf = requestAnimationFrame(tick);
 		// Skip the whole frame when nothing animates and nothing changed.
 		if (!hasMods && !needsRender) return;
 		needsRender = false;
-		const t = getTime();
+		const t = (performance.now() - t0) / 1000;
+		const dt = Math.max(0, t - lastT);
+		lastT = t;
 		if (hasMods) {
-			tickModulators(
+			updateModulators(
 				{
 					lfos: parsed.lfos,
 					bindings: parsed.bindings,
 					transforms,
 					paints: parsed.paints,
 				},
-				t
+				dt
 			);
 		}
 		syncGroups();
 		for (const led of ledMeshes) {
 			const paint = parsed.paints[led.paintId];
 			if (!paint) continue;
-			let brightness = 1;
-			if (parsed.lfos?.length) {
-				// Map sample [-1, 1] straight to brightness [0, 1]: amplitude 1
-				// swings from black to full colour, amplitude 0 holds mid-grey.
-				const sample = sampleLfo(parsed.lfos[0], t);
-				brightness = Math.min(1, Math.max(0, (1 + sample) / 2));
-			}
-			led.mat.color.setRGB(
-				(paint.rgba[0] ?? 1) * brightness,
-				(paint.rgba[1] ?? 1) * brightness,
-				(paint.rgba[2] ?? 1) * brightness
-			);
+			led.mat.color.setRGB(paint.rgba[0] ?? 1, paint.rgba[1] ?? 1, paint.rgba[2] ?? 1);
 			led.mat.opacity = paint.rgba[3] ?? 1;
+			led.mat.transparent = (paint.rgba[3] ?? 1) < 1;
 		}
 		controls?.update?.();
 		renderer.render(scene, camera);
@@ -426,7 +434,7 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 			});
 		},
 		resize,
-		getTime,
+		getTime: () => lastT,
 		state: parsed,
 	};
 }

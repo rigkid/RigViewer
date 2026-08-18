@@ -6,7 +6,7 @@ import test from "node:test";
 import {
 	parseDocument,
 	parseDocumentText,
-	tickModulators,
+	updateModulators,
 	setProperty,
 	getProperty,
 	runAction,
@@ -60,9 +60,9 @@ test("lfo-binding parses modulators and ticks position.y", () => {
 		bindings: parsed.bindings,
 		transforms: structuredClone(parsed.transforms),
 	};
-	tickModulators(state, 0);
+	updateModulators(state, 0);
 	const y0 = state.transforms.dot.position[1];
-	tickModulators(state, 0.5);
+	updateModulators(state, 0.5);
 	const y1 = state.transforms.dot.position[1];
 	assert.ok(Number.isFinite(y0));
 	assert.ok(Number.isFinite(y1));
@@ -88,9 +88,8 @@ test("ui control mutates paint and LFO; resetPhase works", () => {
 	assert.ok(setProperty(parsed, "pulse", "frequency", 2));
 	assert.equal(getProperty(parsed, "pulse", "frequency"), 2);
 
-	const t = 1.25;
-	runAction(parsed, "lfo.resetPhase", t);
-	const s = sampleLfo(parsed.lfos[0], t);
+	runAction(parsed, "lfo.resetPhase");
+	const s = sampleLfo(parsed.lfos[0]);
 	// phase reset → near zero crossing for sine (offset 0, amp 1)
 	assert.ok(Math.abs(s) < 1e-6, `expected ~0 after reset, got ${s}`);
 });
@@ -103,6 +102,7 @@ test("all examples: zero skipped keys", () => {
 		"portable-tool.json",
 		"demo-3d.json",
 		"demo-gleditor.json",
+		"demo-solar.json",
 	]) {
 		const parsed = parseDocument(loadExample(name));
 		assert.equal(parsed.skipped.length, 0, `${name}: ${parsed.skipped.join(", ")}`);
@@ -135,14 +135,55 @@ test("demo-3d has perspective camera, meshes, lights, materials", () => {
 	assert.equal(wedge.normals, null);
 });
 
+test("demo-solar uses the sphere primitive and leaves resolution to the viewer", () => {
+	const parsed = parseDocument(loadExample("demo-solar.json"));
+	const spheres = parsed.drawables.filter((d) => d.kind === "sphere");
+	assert.equal(spheres.length, 3);
+	for (const s of spheres) {
+		assert.equal(s.radius, 1);
+		// Parser stays presentation-agnostic — segments are a viewer preference,
+		// not baked into the document, unless an author overrides them.
+		assert.equal(s.widthSegments, null);
+		assert.equal(s.heightSegments, null);
+	}
+	const sun = spheres.find((s) => s.id === "sun");
+	assert.ok(sun.materialId, "sun should carry its rig.render.material");
+});
+
+test("rig.geometry.sphere respects an authored radius and segment override", () => {
+	const doc = {
+		rig: "0.9.0",
+		document: { title: "sphere" },
+		entities: [
+			{
+				id: "ball",
+				components: {
+					"rig.spatial.transform": { position: [2, 0, 0] },
+					"rig.geometry.sphere": { radius: 3, widthSegments: 64, heightSegments: 32 },
+				},
+			},
+		],
+	};
+	const parsed = parseDocument(doc);
+	assert.equal(parsed.geometryCount, 1);
+	const ball = parsed.drawables.find((d) => d.id === "ball");
+	assert.equal(ball.kind, "sphere");
+	assert.equal(ball.radius, 3);
+	assert.equal(ball.widthSegments, 64);
+	assert.equal(ball.heightSegments, 32);
+	// Bounds expand around the entity's world position by ± radius.
+	assert.equal(parsed.bounds.minX, 2 - 3);
+	assert.equal(parsed.bounds.maxX, 2 + 3);
+});
+
 test("lfo frequency edits stay phase-continuous (no flicker)", () => {
 	const lfo = { id: "l", waveform: "saw", frequency: 1, amplitude: 1, offset: 0, phase: 0 };
 	const state = { lfos: [lfo], bindings: [] };
-	tickModulators(state, 0.25);
-	const before = sampleLfo(lfo, 0.25);
+	updateModulators(state, 0.25);
+	const before = sampleLfo(lfo);
 	lfo.frequency = 4; // slider drag: 1 Hz -> 4 Hz
-	tickModulators(state, 0.26);
-	const after = sampleLfo(lfo, 0.26);
+	updateModulators(state, 0.01);
+	const after = sampleLfo(lfo);
 	// 0.01 s at 4 Hz advances 0.04 cycles; a rescale of elapsed time would jump ~0.8.
 	assert.ok(Math.abs(after - before) < 0.1, `jumped from ${before} to ${after}`);
 });

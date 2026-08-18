@@ -86,6 +86,7 @@ const infoSrc = document.getElementById("info-src");
 const viewItems = document.getElementById("view-items");
 const prefsPanel = document.getElementById("prefs-panel");
 const prefShading = document.getElementById("pref-shading");
+const prefSphereResolution = document.getElementById("pref-sphere-resolution");
 const issuesPanel = document.getElementById("issues-panel");
 const issuesList = document.getElementById("issues-list");
 const issuesRole = document.getElementById("issues-role");
@@ -93,7 +94,9 @@ const issuesRole = document.getElementById("issues-role");
 // Viewer preferences — persisted per browser, applied on (re)mount.
 const PREFS_KEY = "rigviewer.prefs.v1";
 function loadPrefs() {
-	const defaults = { shading: "auto" };
+	// sphereResolution = width segments for rig.geometry.sphere primitives that
+	// don't specify their own widthSegments (height derives from it, ~2:1).
+	const defaults = { shading: "auto", sphereResolution: 24 };
 	try {
 		return { ...defaults, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") };
 	} catch {
@@ -117,6 +120,14 @@ if (prefShading) {
 	prefShading.value = prefs.shading;
 	prefShading.addEventListener("change", () => {
 		prefs.shading = prefShading.value;
+		savePrefs();
+		remountViewer();
+	});
+}
+if (prefSphereResolution) {
+	prefSphereResolution.value = String(prefs.sphereResolution);
+	prefSphereResolution.addEventListener("change", () => {
+		prefs.sphereResolution = Number(prefSphereResolution.value) || 24;
 		savePrefs();
 		remountViewer();
 	});

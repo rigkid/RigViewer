@@ -39,7 +39,7 @@ const indexHtml = fs.readFileSync(indexPath, "utf8");
 
 parseSrc = parseSrc.replace(/^export /gm, "").replace(/export \{[^}]+\};?\s*/g, "");
 parseSrc +=
-	"\nexport { parseDocument, parseDocumentText, tickModulators, sampleLfo, getProperty, setProperty, runAction };\n";
+	"\nexport { parseDocument, parseDocumentText, updateModulators, sampleLfo, getProperty, setProperty, runAction };\n";
 
 const styleMatch = indexHtml.match(/<style>([\s\S]*?)<\/style>/);
 const bodyMatch = indexHtml.match(/<body>([\s\S]*?)<script/);

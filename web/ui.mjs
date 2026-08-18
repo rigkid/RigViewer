@@ -147,7 +147,7 @@ function buildAction(act, state, getTime, onChange) {
 		text: act.name || act.actionId,
 		disabled: act.enabled === false ? true : null,
 		onClick: () => {
-			const ok = runAction(state, act.actionId, getTime?.() ?? 0);
+			const ok = runAction(state, act.actionId);
 			if (!ok) console.warn("Unknown actionId:", act.actionId);
 			onChange?.();
 		},

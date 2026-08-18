@@ -27,6 +27,7 @@ export const VIEWER_KNOWN_KEYS = [
 	"rig.geometry.ring",
 	"rig.geometry.path",
 	"rig.geometry.mesh",
+	"rig.geometry.sphere",
 	"rig.mod.lfo",
 	"rig.mod.binding",
 	"rig.ui.panel",
@@ -42,8 +43,7 @@ const KNOWN = new Set(VIEWER_KNOWN_KEYS);
 
 /** Common invented / renamed ids → contract suggestion. */
 const ALIASES = {
-	"rig.geometry.shape": "rig.geometry.mesh",
-	"rig.geometry.sphere": "rig.geometry.mesh (author a sphere mesh — no sphere primitive yet)",
+	"rig.geometry.shape": "rig.geometry.mesh (or rig.geometry.sphere for a round primitive)",
 	"rig.material.solid": "rig.render.material",
 	"rig.material.pbr": "rig.render.material",
 	"rig.render.camera": "rig.spatial.camera",

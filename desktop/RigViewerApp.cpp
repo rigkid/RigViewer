@@ -34,7 +34,6 @@
 namespace {
 
 using rigkit::project::importContractFile;
-using rigkit::project::tickContractModulators;
 
 } // namespace
 
@@ -283,9 +282,7 @@ void RigViewerApp::update(float dt) {
 		return;
 	}
 	m_timeSec += dt;
-	if (auto* ecs = m_engine->getECSManager()) {
-		tickContractModulators(*ecs, m_doc, m_timeSec);
-	}
+	// Modulators: SModulators runs via engine Update systems (CModLfo + CModBinding).
 	updateOrbitInput();
 }
 

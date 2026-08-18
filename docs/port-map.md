@@ -43,6 +43,7 @@ When you add or drop a key, update `KNOWN_PASS` / `ContractImport` **and** this 
 | `rig.geometry.ring` | Yes | Yes | |
 | `rig.geometry.path` | Partial | Partial | Common commands (`moveTo` / `lineTo` / …); exotic path ops may approximate. |
 | `rig.geometry.mesh` | Yes | Yes | Positions / indices / mode; face colours when present. |
+| `rig.geometry.sphere` | Yes | No | Viewer-authored primitive (`radius` + optional `widthSegments`/`heightSegments`), tessellated client-side. Falls back to the **Preferences → Sphere resolution** default when segments are omitted. Not yet in RigWorks schemas or desktop `ContractImport` — authors should keep using `rig.geometry.mesh` for cross-host documents until it lands upstream. |
 
 ---
 
@@ -131,6 +132,7 @@ Open those documents anyway: known entities still draw; unknown keys list under 
 | Code editor (GLSL) | Yes | Multiline over `CCode` |
 | Live shader preview | Yes | No (import only) |
 | Single-file offline | `dist/rigviewer.html` | — |
+| Preferences (shading, sphere resolution) | Yes (`localStorage`) | — |
 
 ---
 
@@ -140,6 +142,7 @@ Open those documents anyway: known entities still draw; unknown keys list under 
 |---------|-----------|
 | `examples/minimal-scene.json` | 2D geometry + ortho camera |
 | `examples/demo-3d.json` | Mesh + material + light + perspective orbit |
+| `examples/demo-solar.json` | `rig.geometry.sphere` primitives + point lights + LFO orbit bindings |
 | `examples/demo-gleditor.json` | `rig.media.code` + UI buffer switch + editor |
 | `examples/lfo-binding.json` | LFO + binding + reset action |
 | `examples/ui-panel.json` / `portable-tool.json` | UI + `paint.solid` |
