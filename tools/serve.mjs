@@ -19,8 +19,10 @@ const server = http.createServer((req, res) => {
 	if (u === "/" || u === "") u = "/web/index.html";
 	if (u.endsWith("/")) u += "index.html";
 	const rel = u.replace(/^\/+/, "").replace(/\//g, path.sep);
-	const f = path.resolve(root, rel);
-	const rootNorm = root.toLowerCase();
+	const aliasRoot = u.startsWith("/varbook/") ? path.resolve(root, "..", "varbook") : root;
+	const aliasRel = u.startsWith("/varbook/") ? u.slice("/varbook/".length).replace(/\//g, path.sep) : rel;
+	const f = path.resolve(aliasRoot, aliasRel);
+	const rootNorm = aliasRoot.toLowerCase();
 	const fileNorm = f.toLowerCase();
 	if (!fileNorm.startsWith(rootNorm) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) {
 		res.writeHead(404);

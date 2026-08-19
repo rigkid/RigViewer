@@ -39,6 +39,11 @@ const KNOWN_PASS = new Set([
 	"rig.render.material",
 	"rig.render.light",
 	"rig.media.code",
+	"rig.story.flow",
+	"rig.story.paragraph",
+	"rig.story.paragraph_style",
+	"rig.story.character_style",
+	"rig.story.table",
 ]);
 
 const GEOMETRY_KEYS = [
@@ -286,6 +291,11 @@ export function parseDocument(doc) {
 	const materials = {};
 	const lights = [];
 	const codes = [];
+	const stories = [];
+	const paragraphs = {};
+	const paragraphStyles = {};
+	const characterStyles = {};
+	const tables = {};
 	let minX = Infinity;
 	let minY = Infinity;
 	let maxX = -Infinity;
@@ -404,6 +414,50 @@ export function parseDocument(doc) {
 				text: code.text ?? "",
 				readOnly: !!code.readOnly,
 				order: c["rig.meta.named"]?.order ?? 0,
+			});
+		}
+
+		if (c["rig.story.paragraph_style"]) {
+			const s = c["rig.story.paragraph_style"];
+			paragraphStyles[e.id] = {
+				id: e.id,
+				name,
+				basedOn: s.basedOn || null,
+				listKind: s.listKind || "",
+			};
+		}
+		if (c["rig.story.character_style"]) {
+			const s = c["rig.story.character_style"];
+			characterStyles[e.id] = {
+				id: e.id,
+				name,
+				basedOn: s.basedOn || null,
+			};
+		}
+		if (c["rig.story.paragraph"]) {
+			const p = c["rig.story.paragraph"];
+			paragraphs[e.id] = {
+				id: e.id,
+				style: p.style || null,
+				breakType: p.breakType || "",
+				runs: Array.isArray(p.runs) ? p.runs.map((r) => ({ text: r.text ?? "", style: r.style || null })) : [],
+			};
+		}
+		if (c["rig.story.table"]) {
+			const t = c["rig.story.table"];
+			tables[e.id] = {
+				id: e.id,
+				columnCount: t.columnCount ?? 1,
+				headerRowCount: t.headerRowCount ?? 0,
+				cells: Array.isArray(t.cells) ? t.cells : [],
+			};
+		}
+		if (c["rig.story.flow"]) {
+			const flow = c["rig.story.flow"];
+			stories.push({
+				id: e.id,
+				name,
+				blocks: Array.isArray(flow.blocks) ? flow.blocks : [],
 			});
 		}
 
@@ -693,6 +747,11 @@ export function parseDocument(doc) {
 		lights,
 		codes,
 		activeCodeId,
+		stories,
+		paragraphs,
+		paragraphStyles,
+		characterStyles,
+		tables,
 		skipped: [...skipped].sort(),
 		bounds: { minX, minY, maxX, maxY, minZ, maxZ },
 		geometryKeys: GEOMETRY_KEYS,
@@ -797,6 +856,9 @@ export function setProperty(state, entityId, propertyKey, value) {
 	}
 	return false;
 }
+
+/** Shared `actionId`s this host fulfills — unknown ids stay hidden. */
+export const SUPPORTED_ACTION_IDS = new Set(["lfo.resetPhase"]);
 
 /** Fulfill shared action ids used by examples. */
 export function runAction(state, actionId) {

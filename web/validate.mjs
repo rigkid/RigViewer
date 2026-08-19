@@ -37,6 +37,11 @@ export const VIEWER_KNOWN_KEYS = [
 	"rig.render.material",
 	"rig.render.light",
 	"rig.media.code",
+	"rig.story.flow",
+	"rig.story.paragraph",
+	"rig.story.paragraph_style",
+	"rig.story.character_style",
+	"rig.story.table",
 ];
 
 const KNOWN = new Set(VIEWER_KNOWN_KEYS);
@@ -334,7 +339,10 @@ export function validateDocument(input) {
 		const hasCode = doc.entities.some(
 			(e) => e?.components && e.components["rig.media.code"],
 		);
-		if (!hasCode) {
+		const hasStory = doc.entities.some(
+			(e) => e?.components && e.components["rig.story.flow"],
+		);
+		if (!hasCode && !hasStory) {
 			warnings.push(
 				issue(
 					"warn",

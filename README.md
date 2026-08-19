@@ -83,7 +83,8 @@ npm run docs   # → docs/api/html/index.html
 
 | Path | Role |
 |------|------|
-| `web/` | Hosted Three.js viewer |
+| `web/` | Hosted Three.js viewer + ImTui chrome |
+| `web/tui/` | Shared ImTui host (engine, dock, `rig.ui.*`) — Player vendors this folder |
 | `dist/rigviewer.html` | Single-file offline viewer |
 | `desktop/` | RigKit product app + Contract importer |
 | `docs/` | Port map and product docs |

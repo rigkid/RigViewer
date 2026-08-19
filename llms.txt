@@ -1,6 +1,6 @@
 # RigViewer
 
-> Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents — JSON in, scene out (web Three.js + optional RigKit desktop).
+> Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents — JSON in, scene out (web ImTui dock + Three.js + optional RigKit desktop). `web/tui/` is the shared Viewer / Player chrome.
 
 **Viewer presents; Player plays.** RigViewer does not execute document Lua.
 

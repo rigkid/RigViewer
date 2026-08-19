@@ -4,25 +4,16 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>RigViewer</title>
+	<meta name="description" content="Zero-setup Rig document viewer — ImTui chrome, scene/GLSL present." />
 	<script>
-		/* Apply before paint so embed iframes never flash the menu bar. */
 		(function () {
 			var e = new URLSearchParams(location.search).get("embed");
 			if (e === "1" || e === "true") document.documentElement.classList.add("embed");
 		})();
 	</script>
 	<style>
-		:root {
-			color-scheme: dark;
-			--bg: #0b0d10;
-			--panel: #14181f;
-			--text: #e8ecf1;
-			--muted: #9aa3ad;
-			--accent: #4fa3ff;
-			--border: #2a313c;
-		}
+		:root { color-scheme: dark; }
 		* { box-sizing: border-box; }
-		/* Author display rules (flex/grid) must never defeat the hidden attribute. */
 		[hidden] { display: none !important; }
 		html, body {
 			margin: 0;
@@ -31,293 +22,75 @@
 			height: 100dvh;
 			overflow: hidden;
 			overscroll-behavior: none;
-			background: var(--bg);
-			color: var(--text);
-			font: 14px/1.4 system-ui, Segoe UI, sans-serif;
+			background: #0b0d10;
+			color: #e8ecf1;
+			font: 14px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace;
 		}
 		#app {
-			display: grid;
-			grid-template-rows: auto 1fr;
+			position: relative;
 			width: 100%;
 			height: 100%;
-			min-width: 0;
-			overflow: hidden;
 		}
-		/* ?embed=1 — stage only (for iframes on RigWorks / marketing pages). */
-		html.embed #app { grid-template-rows: 1fr; }
-		html.embed #app > header { display: none; }
-		/* Thin menu bar: brand, File / Examples menus, status. */
-		#app > header {
-			display: flex;
-			align-items: center;
-			gap: 0.15rem;
-			padding: 0.15rem 0.6rem;
-			background: var(--panel);
-			border-bottom: 1px solid var(--border);
-			font-size: 13px;
-			min-width: 0;
-			max-width: 100%;
-		}
-		header h1 {
-			display: flex;
-			align-items: center;
-			white-space: nowrap;
-			flex: none;
-			font-size: 13px;
-			font-weight: 650;
-			margin: 0 0.6rem 0 0;
-			letter-spacing: 0.02em;
-		}
-		header h1::before {
-			content: "";
-			flex: none;
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background: var(--accent);
-			margin-right: 0.45rem;
-		}
-		header .meta {
-			color: var(--muted);
-			margin-left: auto;
-			margin-right: 0.25rem;
-			font-size: 12px;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-			min-width: 0;
-		}
-		details.menu { position: relative; }
-		details.menu > summary {
-			list-style: none;
-			cursor: pointer;
-			padding: 0.28rem 0.6rem;
-			border-radius: 4px;
-			user-select: none;
-		}
-		details.menu > summary::-webkit-details-marker { display: none; }
-		details.menu > summary:hover, details.menu[open] > summary { background: #232b38; }
-		.menu-items {
-			position: absolute;
-			top: calc(100% + 3px);
-			left: 0;
-			min-width: 200px;
-			background: var(--panel);
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			padding: 0.3rem;
-			display: flex;
-			flex-direction: column;
-			z-index: 10;
-			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-		}
-		.menu-item {
-			appearance: none;
-			display: block;
-			width: 100%;
-			text-align: left;
-			background: none;
-			border: none;
-			color: var(--text);
-			padding: 0.38rem 0.6rem;
-			border-radius: 5px;
-			cursor: pointer;
-			font: inherit;
-			font-size: 13px;
-			text-decoration: none;
-		}
-		.menu-item { display: flex; align-items: center; gap: 0.5rem; }
-		.menu-item:hover { background: #1d2c40; }
-		/* Check sits on the right so item text lines up across all menus. */
-		.menu-check { margin-left: auto; min-width: 1em; text-align: right; color: var(--accent); }
-		.menu-item[aria-current="page"] { color: var(--accent); }
-		.menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
-		.menu-sep { height: 1px; background: var(--border); margin: 0.25rem 0.2rem; }
-		input[type="file"] { display: none; }
-		#stage {
-			position: relative;
-			min-width: 0;
-			min-height: 0;
-			overflow: hidden;
-		}
-		#stage.drag {
-			outline: 2px dashed var(--accent);
-			outline-offset: -8px;
-		}
-		canvas {
-			/* Fill the stage by inset so % height never collapses to 0 on phones
-			   (percentage chains break when the only in-flow child has no definite size). */
+		canvas#tui {
 			position: absolute;
 			inset: 0;
-			display: block;
 			width: 100%;
 			height: 100%;
-			/* Orbit / pan own the gesture; do not let the page (or parent iframe
-			   host) steal vertical touch drags for scroll. */
-			touch-action: none;
-		}
-		#panels {
-			position: absolute;
-			top: 12px;
-			right: 12px;
-			display: flex;
-			flex-direction: column;
-			gap: 0.75rem;
-			max-width: calc(100% - 24px);
-			max-height: calc(100% - 24px);
-			overflow: auto;
+			display: block;
 			z-index: 2;
-			pointer-events: none;
-		}
-		#panels:not([hidden]) { pointer-events: auto; }
-		/* Panels: one style for every window (code overlay included) — slim head,
-		   quiet borders, slight translucency over the stage. */
-		.rig-panel {
-			background: rgba(16, 19, 25, 0.72);
-			backdrop-filter: blur(8px);
-			border: 1px solid var(--border);
-			border-radius: 5px;
-			padding: 0.25rem 0.35rem 0.35rem;
-			box-shadow: 0 4px 14px rgba(0,0,0,0.28);
-			resize: both;
-			overflow: auto;
-			min-width: min(240px, 100%);
-			max-width: 100%;
-			display: flex;
-			flex-direction: column;
-		}
-		.rig-panel-head {
-			display: flex;
-			align-items: center;
-			gap: 0.4rem;
-			margin-bottom: 0.25rem;
-			cursor: grab;
-			user-select: none;
 			touch-action: none;
-			font-size: 12px;
 		}
-		.rig-panel-head:active { cursor: grabbing; }
-		.rig-panel-head > strong { margin-right: auto; font-weight: 600; }
-		.rig-caret {
-			color: var(--muted);
-			font-size: 9px;
-			transition: transform 0.12s ease;
+		canvas#view {
+			position: absolute;
+			z-index: 3;
+			display: block;
+			background: #050608;
+			touch-action: none;
 		}
-		.rig-panel.collapsed .rig-caret { transform: rotate(-90deg); }
-		.rig-panel.collapsed .rig-panel-body { display: none; }
-		.rig-panel.collapsed {
-			resize: none;
-			overflow: hidden;
-			height: auto !important;
+		html.embed canvas#tui { display: none; }
+		html.embed canvas#view {
+			inset: 0;
+			width: 100%;
+			height: 100%;
+		}
+		#code-host {
+			position: absolute;
+			z-index: 3;
+			min-width: 0;
 			min-height: 0;
-			padding-bottom: 0.3rem;
+			overflow: hidden;
+			background: rgba(13, 16, 21, 0.92);
+			border: 1px solid #2a313c;
 		}
-		.rig-panel.collapsed .rig-panel-head { margin-bottom: 0; }
-		.rig-panel-role {
-			color: var(--muted);
-			font-size: 10.5px;
-			order: 5;
-		}
-		.rig-buf-select {
-			order: 6;
-			background: #0d1015;
-			color: var(--text);
-			border: 1px solid var(--border);
-			border-radius: 4px;
-			font: inherit;
-			font-size: 11px;
-			padding: 0.08rem 0.25rem;
-			max-width: 140px;
-		}
-		.rig-buf-select:focus { outline: none; border-color: var(--accent); }
-		.rig-x {
-			appearance: none;
-			background: none;
-			border: none;
-			color: var(--muted);
-			font-size: 14px;
-			line-height: 1;
-			padding: 0 0.15rem;
-			cursor: pointer;
-			order: 10;
-		}
-		.rig-x:hover { color: var(--text); }
-		.rig-panel-body { display: flex; flex-direction: column; gap: 0.35rem; }
-		.rig-group {
-			border: 1px solid var(--border);
-			border-radius: 5px;
-			margin: 0;
-			padding: 0.25rem 0.45rem 0.4rem;
-		}
-		.rig-group legend {
-			padding: 0 0.25rem;
-			color: var(--muted);
-			font-size: 11px;
-		}
-		.rig-group-col { display: flex; flex-direction: column; gap: 0.4rem; }
-		.rig-group-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-		.rig-ctrl {
+		#boot {
+			position: absolute;
+			inset: 0;
 			display: grid;
-			grid-template-columns: 1fr auto;
-			gap: 0.35rem 0.5rem;
-			align-items: center;
-		}
-		.rig-ctrl-label { color: var(--text); font-size: 12px; grid-column: 1 / -1; }
-		.rig-ctrl input[type="range"] { width: 140px; }
-		.rig-ctrl-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.5rem; text-align: right; }
-		/* One control style across all panels — native widgets on the rig palette. */
-		.rig-panel input[type="range"], .rig-panel input[type="checkbox"] { accent-color: var(--accent); }
-		.rig-panel input[type="color"] {
-			appearance: none;
-			width: 44px;
-			height: 26px;
-			padding: 2px;
-			background: #0d1015;
-			border: 1px solid var(--border);
-			border-radius: 5px;
-			cursor: pointer;
-		}
-		.rig-panel input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
-		.rig-panel input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
-		.rig-panel select, .rig-panel input[type="text"] {
-			background: #0d1015;
-			color: var(--text);
-			border: 1px solid var(--border);
-			border-radius: 5px;
-			padding: 0.25rem 0.45rem;
-			font: inherit;
-			font-size: 12.5px;
-		}
-		.rig-panel select:focus, .rig-panel input[type="text"]:focus {
-			outline: none;
-			border-color: var(--accent);
-		}
-		.rig-action {
-			appearance: none;
-			border: 1px solid var(--border);
-			background: #1b212b;
-			color: var(--text);
-			padding: 0.22rem 0.6rem;
-			border-radius: 4px;
-			cursor: pointer;
-			font: inherit;
+			place-items: center;
+			background: #0b0d10;
+			z-index: 10;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
 			font-size: 12px;
-			align-self: flex-start;
+			color: #888;
 		}
-		.rig-action:hover { border-color: var(--accent); }
-		.rig-panel-code { max-height: calc(100vh - 96px); display: flex; flex-direction: column; }
-		.rig-panel-code .rig-panel-body { flex: 1; min-height: 0; }
-		.rig-code-editor { display: flex; flex-direction: column; gap: 0.3rem; min-height: 0; flex: 1; }
-		/* Layered editor: highlighted <pre> under a transparent <textarea>. */
+		#boot[hidden] { display: none !important; }
+		#boot.error {
+			color: #f66;
+			padding: 2rem;
+			text-align: center;
+			white-space: pre-wrap;
+			text-transform: none;
+			letter-spacing: 0;
+		}
+		input[type="file"] { display: none; }
 		.rig-edit {
 			position: relative;
-			flex: 1;
-			min-height: 280px;
-			height: min(52vh, 520px);
-			border: 1px solid var(--border);
-			border-radius: 4px;
-			background: rgba(13, 16, 21, 0.6);
+			width: 100%;
+			height: 100%;
+			min-height: 0;
 			overflow: hidden;
+			background: rgba(13, 16, 21, 0.6);
 		}
 		.rig-edit-hl, .rig-edit-ta {
 			font: 12.5px/1.5 ui-monospace, Cascadia Code, Consolas, monospace;
@@ -343,362 +116,28 @@
 			resize: none;
 			background: transparent;
 			color: transparent;
-			caret-color: var(--text);
+			caret-color: #e8ecf1;
 			outline: none;
 			overflow: auto;
 		}
 		.rig-edit-ta::selection { background: rgba(79, 163, 255, 0.28); }
-		.rig-edit:focus-within { border-color: var(--accent); }
+		.rig-edit:focus-within { outline: 1px solid #4fa3ff; }
 		.rig-edit-ro { opacity: 0.6; }
-		/* Token colors — rig accent for keywords. */
-		.tk-k { color: var(--accent); }
+		.tk-k { color: #4fa3ff; }
 		.tk-t { color: #4ec9b0; }
 		.tk-b { color: #dcdcaa; }
 		.tk-s { color: #ce9178; }
 		.tk-n { color: #b5cea8; }
 		.tk-c { color: #6a9955; font-style: italic; }
-		/* Shader documents: same window style, just positioned over the visual. */
-		#panels.code-overlay {
-			top: auto;
-			left: 12px;
-			right: auto;
-			bottom: 12px;
-			width: min(620px, calc(100% - 24px));
-			max-height: 60%;
-		}
-		#info-panel {
-			position: absolute;
-			top: 12px;
-			left: 12px;
-			z-index: 3;
-			width: min(400px, calc(100% - 24px));
-			max-height: calc(100% - 24px);
-		}
-		#prefs-panel {
-			position: absolute;
-			top: 48px;
-			left: 48px;
-			z-index: 4;
-			width: min(320px, calc(100% - 24px));
-			max-height: calc(100% - 60px);
-		}
-		#issues-panel {
-			position: absolute;
-			bottom: 12px;
-			left: 12px;
-			z-index: 5;
-			width: min(440px, calc(100% - 24px));
-			max-height: min(50%, calc(100% - 24px));
-		}
-		.rig-pref { display: flex; flex-direction: column; gap: 0.25rem; font-size: 12px; color: var(--text); }
-		.rig-pref-note { color: var(--muted); font-size: 11px; }
-		.rig-issues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-		.rig-issue {
-			margin: 0;
-			padding: 0.35rem 0.45rem;
-			border-left: 2px solid var(--border);
-			font-size: 12px;
-			line-height: 1.35;
-			color: var(--text);
-		}
-		.rig-issue[data-level="error"] { border-color: #c06060; background: rgba(80, 24, 24, 0.35); }
-		.rig-issue[data-level="warn"] { border-color: #c0a050; background: rgba(70, 56, 16, 0.3); }
-		.rig-issue[data-level="note"] { border-color: var(--border); color: var(--muted); }
-		.rig-issue-code {
-			display: inline-block;
-			font-size: 10px;
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-			color: var(--muted);
-			margin-right: 0.35rem;
-		}
-		.rig-issue-hint { display: block; margin-top: 0.2rem; color: var(--muted); font-size: 11px; }
-		.rig-info {
-			display: grid;
-			grid-template-columns: auto 1fr;
-			gap: 0.25rem 0.9rem;
-			margin: 0;
-			font-size: 12px;
-		}
-		.rig-info dt { color: var(--muted); }
-		.rig-info dd { margin: 0; overflow-wrap: anywhere; }
-		/* ImGui-style collapsing header. */
-		.rig-fold > summary {
-			list-style: none;
-			display: flex;
-			align-items: center;
-			gap: 0.4rem;
-			background: #1b212b;
-			border: 1px solid var(--border);
-			border-radius: 4px;
-			padding: 0.28rem 0.5rem;
-			font-size: 12px;
-			cursor: pointer;
-			user-select: none;
-		}
-		.rig-fold > summary::-webkit-details-marker { display: none; }
-		.rig-fold > summary::before {
-			content: "▸";
-			color: var(--muted);
-			font-size: 9px;
-			transition: transform 0.12s ease;
-		}
-		.rig-fold[open] > summary::before { transform: rotate(90deg); }
-		.rig-fold > summary:hover { border-color: var(--accent); }
-		.rig-fold > :not(summary) { margin-top: 0.35rem; }
-		#info-src {
-			margin: 0;
-			height: 220px;
-			min-height: 60px;
-			resize: vertical;
-			overflow: auto;
-			font: 11.5px/1.45 ui-monospace, Cascadia Code, Consolas, monospace;
-			background: #0d1015;
-			border: 1px solid var(--border);
-			border-radius: 5px;
-			padding: 0.45rem 0.55rem;
-			white-space: pre;
-		}
-		#overlay {
-			position: absolute;
-			left: 12px;
-			bottom: 12px;
-			max-width: min(420px, 90%);
-			background: rgba(20, 24, 31, 0.92);
-			border: 1px solid var(--border);
-			border-radius: 6px;
-			padding: 0.6rem 0.75rem;
-			color: var(--muted);
-			font-size: 12px;
-			pointer-events: none;
-			display: none;
-			z-index: 2;
-		}
-		#overlay strong { color: var(--text); }
-		#empty {
-			position: absolute;
-			inset: 0;
-			display: grid;
-			place-items: center;
-			color: var(--muted);
-			text-align: center;
-			padding: 2rem;
-			pointer-events: none;
-		}
-		#empty code {
-			color: var(--accent);
-			font-size: 0.95em;
-		}
-		/* Floating toast over the stage — never shifts layout. */
-		#share-banner {
-			display: none;
-			position: absolute;
-			top: 0.6rem;
-			left: 50%;
-			transform: translateX(-50%);
-			z-index: 40;
-			max-width: min(80%, 640px);
-			align-items: center;
-			gap: 0.6rem;
-			padding: 0.35rem 0.7rem;
-			font-size: 12.5px;
-			border: 1px solid var(--border);
-			border-radius: 6px;
-			background: rgba(26, 34, 45, 0.85);
-			backdrop-filter: blur(8px);
-			box-shadow: 0 4px 14px rgba(0,0,0,0.3);
-			color: var(--muted);
-		}
-		#share-banner:not([hidden]) { display: flex; }
-		#share-banner span { flex: 1; min-width: 0; }
-		.banner-close {
-			appearance: none;
-			background: none;
-			border: none;
-			color: inherit;
-			font-size: 15px;
-			line-height: 1;
-			padding: 0 0.2rem;
-			cursor: pointer;
-			opacity: 0.7;
-		}
-		.banner-close:hover { opacity: 1; }
-		#share-banner[data-level="soft"] { color: #f0d9a8; border-color: #5a4a28; background: rgba(42, 36, 20, 0.88); }
-		#share-banner[data-level="hard"] { color: #f0b4b4; border-color: #5a2828; background: rgba(42, 20, 20, 0.88); }
-
-		/* Phone / narrow: fill the viewport, dock chrome, no forced desktop widths. */
-		@media (max-width: 640px) {
-			#app > header {
-				flex-wrap: wrap;
-				row-gap: 0.1rem;
-				padding: 0.2rem 0.4rem;
-			}
-			header h1 { margin-right: 0.25rem; }
-			header .meta {
-				order: 10;
-				flex: 1 0 100%;
-				margin: 0;
-				font-size: 11px;
-			}
-			.menu-items {
-				position: fixed;
-				left: 8px;
-				right: 8px;
-				top: 2.75rem;
-				min-width: 0;
-				width: auto;
-				max-height: min(70vh, 420px);
-				overflow: auto;
-				z-index: 50;
-			}
-			.rig-panel {
-				min-width: 0;
-				width: 100% !important;
-				max-width: 100%;
-				resize: none;
-			}
-			.rig-ctrl input[type="range"] { width: 100%; min-width: 0; }
-			.rig-ctrl {
-				grid-template-columns: 1fr auto;
-			}
-			#panels {
-				top: auto;
-				left: 8px;
-				right: 8px;
-				bottom: 8px;
-				max-width: none;
-				max-height: 42%;
-				width: auto;
-			}
-			#panels.code-overlay {
-				top: auto;
-				left: 8px;
-				right: 8px;
-				bottom: 8px;
-				width: auto;
-				max-height: 42%;
-			}
-			#info-panel,
-			#prefs-panel {
-				top: 8px;
-				left: 8px;
-				right: 8px;
-				width: auto;
-				max-width: none;
-			}
-			#issues-panel {
-				bottom: 8px;
-				left: 8px;
-				right: 8px;
-				width: auto;
-				max-width: none;
-				max-height: 40%;
-			}
-			.rig-edit {
-				min-height: 160px;
-				height: min(36vh, 280px);
-			}
-			.rig-panel-code { max-height: none; }
-		}
 	</style>
 </head>
 <body>
 	<div id="app">
-		<header>
-			<h1>RigViewer</h1>
-			<details class="menu" id="menu-file">
-				<summary>File</summary>
-				<div class="menu-items">
-					<label class="menu-item">Open…<input id="file" type="file" accept=".json,.rig,application/json" /></label>
-					<button type="button" class="menu-item" id="btn-copy-link" title="Copy a ?doc= link for small sketches">Copy link</button>
-					<button type="button" class="menu-item" id="btn-save-local" title="Save current document in this browser">Save local</button>
-					<button type="button" class="menu-item" id="btn-restore-local" hidden title="Restore last local sketch">Restore local</button>
-					<div class="menu-sep"></div>
-					<a class="menu-item" id="download-single" href="rigviewer.html" title="Self-contained offline copy">Single-file HTML</a>
-					<div class="menu-sep"></div>
-					<button type="button" class="menu-item" id="btn-prefs" title="Viewer preferences (stored in this browser)">Preferences…</button>
-				</div>
-			</details>
-			<details class="menu" id="menu-view">
-				<summary>View</summary>
-				<div class="menu-items" id="view-items"></div>
-			</details>
-			<details class="menu" id="menu-examples">
-				<summary>Examples</summary>
-				<div class="menu-items">
-					<a class="menu-item" href="?src=examples/demo-3d.json">3D demo</a>
-					<a class="menu-item" href="?src=examples/demo-solar.json">Solar system</a>
-					<a class="menu-item" href="?src=examples/demo-gleditor.json">glEditor</a>
-					<a class="menu-item" href="?src=examples/minimal-scene.json">2D scene</a>
-					<a class="menu-item" href="?src=examples/ui-panel.json">UI panel</a>
-					<a class="menu-item" href="?src=examples/lfo-binding.json">LFO</a>
-					<a class="menu-item" href="?src=examples/portable-tool.json">Portable tool</a>
-				</div>
-			</details>
-			<span class="meta" id="status">Drop a Rig document, or File → Open</span>
-		</header>
-		<div id="stage">
-			<canvas id="view"></canvas>
-			<div id="share-banner" hidden data-level=""></div>
-			<section id="info-panel" class="rig-panel" hidden>
-				<header class="rig-panel-head" id="info-head">
-					<span class="rig-caret">▾</span>
-					<strong>Info</strong>
-					<span class="rig-panel-role">document</span>
-				</header>
-				<div class="rig-panel-body">
-					<dl class="rig-info" id="info-list"></dl>
-					<details class="rig-fold">
-						<summary>Source</summary>
-						<pre id="info-src"></pre>
-					</details>
-				</div>
-			</section>
-			<section id="prefs-panel" class="rig-panel" hidden>
-				<header class="rig-panel-head" id="prefs-head">
-					<span class="rig-caret">▾</span>
-					<strong>Preferences</strong>
-					<span class="rig-panel-role">viewer</span>
-				</header>
-				<div class="rig-panel-body">
-					<label class="rig-pref">Mesh shading
-						<select id="pref-shading">
-							<option value="auto">Auto — document decides</option>
-							<option value="flat">Always flat</option>
-							<option value="smooth">Always smooth</option>
-						</select>
-						<span class="rig-pref-note">Auto shades flat unless the document authors normals.</span>
-					</label>
-					<label class="rig-pref">Sphere resolution
-						<select id="pref-sphere-resolution">
-							<option value="12">Low (12 segments)</option>
-							<option value="24">Medium (24 segments)</option>
-							<option value="48">High (48 segments)</option>
-							<option value="96">Ultra (96 segments)</option>
-						</select>
-						<span class="rig-pref-note">Default tessellation for rig.geometry.sphere; entities with an explicit widthSegments override this.</span>
-					</label>
-				</div>
-			</section>
-			<section id="issues-panel" class="rig-panel" hidden>
-				<header class="rig-panel-head" id="issues-head">
-					<span class="rig-caret">▾</span>
-					<strong>Issues</strong>
-					<span class="rig-panel-role" id="issues-role">validator</span>
-				</header>
-				<div class="rig-panel-body">
-					<ul class="rig-issues" id="issues-list"></ul>
-				</div>
-			</section>
-			<div id="panels" hidden></div>
-			<div id="empty">
-				<div>
-					<p>Loading scene preview…</p>
-					<p>Or drop a <code>.json</code> / <code>.rig</code> here, or use <strong>File → Open</strong>.</p>
-				</div>
-			</div>
-			<div id="overlay"></div>
-		</div>
+		<canvas id="tui"></canvas>
+		<canvas id="view"></canvas>
+		<div id="code-host" hidden></div>
+		<input id="file" type="file" accept=".json,.rig,application/json" />
+		<div id="boot">Loading RigViewer…</div>
 	</div>
 	<script type="module" src="./app.mjs"></script>
 </body>

@@ -81,10 +81,10 @@ Shared action id: `lfo.resetPhase` (web UI + desktop Contract UI).
 
 | Schema | Web | Desktop | Honesty |
 |--------|-----|---------|---------|
-| `rig.ui.panel` | Yes | Yes | Web: floating HTML panels. Desktop: **Contract UI** ImGui window. |
-| `rig.ui.group` | Yes | Yes | Nested groups. |
-| `rig.ui.control` | Yes | Yes | Slider / toggle / colour / dropdown / field (widget auto or explicit). |
-| `rig.ui.action` | Yes | Yes | Buttons → known `actionId`s. |
+| `rig.ui.panel` | Yes | Yes | Web: one dockable ImTui window per panel (shared `web/tui` with RigPlayer). Desktop: **Contract UI** ImGui window. |
+| `rig.ui.group` | Yes | Yes | Nested groups; web honors `collapsed`. |
+| `rig.ui.control` | Yes | Yes | Writes `target` + `propertyKey`. Slider / toggle / colour / dropdown / field; `knob` → slider; `xy` when the value is an array. |
+| `rig.ui.action` | Yes | Yes | Known `actionId`s only (`lfo.resetPhase`); unknown ids hidden. |
 
 Viewer-local property (not a schema): `viewer` / `activeCodeId` switches the active `rig.media.code` buffer on web.
 
@@ -97,6 +97,16 @@ Viewer-local property (not a schema): `viewer` / `activeCodeId` switches the act
 | `rig.media.code` | Partial | Partial | **GLSL:** web Shadertoy-style preview + live textarea; desktop imports `CCode` (no live GLES FBO yet). **Lua / pico8:** not played here — banner / shell points at **RigPlayer** (`.rig`). |
 | `rig.media.asset_ref` | No | No | Skipped. |
 | `rig.media.text` | No | No | Skipped. |
+
+## Story
+
+| Schema | Web | Desktop | Honesty |
+|--------|-----|---------|---------|
+| `rig.story.flow` | Yes | No | Web: dockable Book window (wheel / arrows). Named styles only (title / header / bullet). |
+| `rig.story.paragraph` | Yes | No | Runs concatenated; character style identity is kept, not painted. |
+| `rig.story.paragraph_style` | Partial | No | `basedOn`, `listKind`, display name. No face or colour. |
+| `rig.story.character_style` | Silent | No | Identity only. |
+| `rig.story.table` | Partial | No | Cells flatten to lines. |
 
 ---
 
@@ -129,10 +139,11 @@ Open those documents anyway: known entities still draw; unknown keys list under 
 | Pan / zoom (ortho) | Drag + scroll | Host camera (no dedicated pan tool yet) |
 | Edit Mode / Tools | — | Yes (Ctrl+E); Select pick; Move/Rotate/Scale ImGuizmo |
 | Scene / Properties | — | rigImGui host panels |
-| Code editor (GLSL) | Yes | Multiline over `CCode` |
+| Code editor (GLSL) | Yes (dockable ImTui window) | Multiline over `CCode` |
 | Live shader preview | Yes | No (import only) |
 | Single-file offline | `dist/rigviewer.html` | — |
-| Preferences (shading, sphere resolution) | Yes (`localStorage`) | — |
+| Preferences (shading, sphere resolution) | Yes (View → Preferences, `localStorage`) | — |
+| Dockable host windows | Yes (`web/tui` — shared with RigPlayer) | rigImGui |
 
 ---
 

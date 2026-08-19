@@ -2,7 +2,7 @@
   "name": "rigviewer",
   "private": true,
   "version": "0.1.0",
-  "description": "Zero-setup Rig document viewer — web (Three.js) and desktop (RigKit).",
+	"description": "Zero-setup Rig document viewer — web ImTui + Three.js, desktop RigKit.",
   "license": "MIT",
   "type": "module",
   "scripts": {

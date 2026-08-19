@@ -26,7 +26,7 @@ Payload formats (stable): `u1.<base64url(utf8)>` or `z1.<base64url(deflate-raw)>
 ## What to do as an agent
 
 1. Generate JSON using the RigWorks skill + [port-map](port-map.md) + [examples](../examples/).
-2. Validate — Viewer auto-opens an **Issues** panel on load (structure, unknown schemas, dangling refs). For full schema checks use RigWorks `rig-validate`.
+2. Validate — Viewer opens **View → Issues** on load (structure, unknown schemas, dangling refs). For full schema checks use RigWorks `rig-validate`.
 3. **If small:** encode or open the viewer, hit **Copy link**, paste the `?doc=` URL.
 4. **If soft warning:** still OK for a one-off; prefer gist/`?src=` if the user will reshare.
 5. **If hard:** do **not** invent a mega-URL. Save a gist / commit a blob and reply with:
