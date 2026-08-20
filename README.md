@@ -1,6 +1,6 @@
 # RigViewer
 
-Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents.
+Zero-setup viewer for [RigWorks](https://github.com/rigkid/RigWorks) documents. Browser chrome is **ImTui** (`web/tui/`) — the shared Viewer / [RigPlayer](https://github.com/rigkid/RigPlayer) shell (same immediate-mode grid as [vFont](https://github.com/GitBruno/vFont)). Windows dock (drag title to left / right / bottom), close with `[x]`, and reopen from **View**.
 
 **Viewer presents; Player plays.** This repo is the Viewer — it presents POD (scene / GLSL sketch). It does **not** run document Lua. Playable `.rig` documents belong in [RigPlayer](https://github.com/rigkid/RigPlayer).
 

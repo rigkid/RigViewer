@@ -19,6 +19,8 @@ const {
 	syncHostWindows,
 	viewMenuItems,
 	WIN,
+	windowEdgeHit,
+	RESIZE_CURSOR,
 } = await import(tuiUrl);
 const { parseDocumentText, getProperty, setProperty, runAction, SUPPORTED_ACTION_IDS } = await import(
 	pathToFileURL(path.join(root, "web/parse.mjs"))
@@ -109,6 +111,64 @@ test("unknown actionId is hidden; lfo.resetPhase is shown", () => {
 		.join("");
 	assert.match(text, /Reset/);
 	assert.doesNotMatch(text, /Secret/);
+});
+
+test("windowEdgeHit reports borders, not the title bar", () => {
+	assert.equal(windowEdgeHit(0, 0, 0, 0, 20, 10), "nw");
+	assert.equal(windowEdgeHit(19, 0, 0, 0, 20, 10), "ne");
+	assert.equal(windowEdgeHit(0, 9, 0, 0, 20, 10), "sw");
+	assert.equal(windowEdgeHit(19, 9, 0, 0, 20, 10), "se");
+	assert.equal(windowEdgeHit(0, 5, 0, 0, 20, 10), "w");
+	assert.equal(windowEdgeHit(19, 5, 0, 0, 20, 10), "e");
+	assert.equal(windowEdgeHit(10, 9, 0, 0, 20, 10), "s");
+	assert.equal(windowEdgeHit(10, 0, 0, 0, 20, 10), "");
+	assert.equal(windowEdgeHit(5, 5, 0, 0, 20, 10), "");
+	assert.equal(RESIZE_CURSOR.e, "ew-resize");
+});
+
+function paintDock(tui, dock, ids, work, cssX, cssY, down, clicked, released) {
+	tui.beginScreen(0, 0, 8, 16, tui.cols, tui.rows);
+	tui.setPointer(cssX, cssY, down, clicked, released);
+	tui.fillDesk();
+	dock.begin(tui, work);
+	for (const id of ids) dock.draw(tui, id);
+}
+
+test("stage client cells punch through so the scene can show under chrome", () => {
+	const tui = new ImTui();
+	tui.beginScreen(0, 0, 8, 16, 40, 20);
+	tui.fillDesk();
+	assert.deepEqual(tui.cells[0].bg, C.desk);
+	const dock = new TuiDock();
+	dock.define("stage", { title: "Stage", dock: "center", kind: "stage", w: 30, h: 16 });
+	const work = { x: 0, y: 0, w: 40, h: 20 };
+	dock.begin(tui, work);
+	const client = dock.draw(tui, "stage");
+	assert.ok(client);
+	const hole = tui.cells[client.y * tui.cols + client.x];
+	assert.equal(hole.bg, null);
+	assert.equal(hole.ch, " ");
+	const desk = tui.cells[0];
+	assert.deepEqual(desk.bg, C.desk);
+});
+
+test("float window resizes from the east border", () => {
+	const tui = new ImTui();
+	const dock = new TuiDock();
+	dock.define("p", { title: "Panel", dock: "float", x: 10, y: 4, w: 20, h: 10, kind: "info" });
+	const work = { x: 0, y: 1, w: 80, h: 22 };
+	tui.cols = 80;
+	tui.rows = 24;
+	const cell = (c, r) => [c * 8, r * 16];
+	paintDock(tui, dock, ["p"], work, ...cell(29, 8), true, true, false);
+	assert.equal(dock.drag?.type, "resize");
+	assert.equal(dock.drag?.edge, "e");
+	const before = dock.get("p").w;
+	paintDock(tui, dock, ["p"], work, ...cell(35, 8), true, false, false);
+	assert.ok(dock.get("p").w > before);
+	paintDock(tui, dock, ["p"], work, ...cell(35, 8), false, false, true);
+	assert.equal(dock.drag, null);
+	assert.equal(dock.get("p").collapsed, false);
 });
 
 test("dock snaps a dragged window to the right and View lists it", () => {
