@@ -45,6 +45,7 @@ export function syncHostWindows(dock, spec) {
 		parsed,
 		report,
 		hasCode = false,
+		codeVisible = true,
 		showInfo = false,
 		showPrefs = false,
 		stageTitle = "Stage",
@@ -108,11 +109,20 @@ export function syncHostWindows(dock, spec) {
 		w: 34,
 		h: 12,
 		kind: "issues",
+		visible: false,
 	});
 
 	if (hasCode) {
 		keep.push(WIN.code);
-		dock.define(WIN.code, { title: "Code", badge: "LIVE", dock: "bottom", w: 60, h: 12, kind: "code" });
+		dock.define(WIN.code, {
+			title: "Code",
+			badge: "LIVE",
+			dock: "bottom",
+			w: 60,
+			h: 12,
+			kind: "code",
+			visible: codeVisible,
+		});
 	}
 
 	if (hasStory) {

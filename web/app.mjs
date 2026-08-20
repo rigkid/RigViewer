@@ -382,13 +382,13 @@ function runCmd(cmd) {
 			else void document.documentElement.requestFullscreen();
 			break;
 		case "about":
-			flashStatus("RigViewer presents. RigPlayer plays. ImTui chrome; same Rig documents.");
+			dock.setVisible("about", true);
 			break;
 		case "player":
 			window.open("https://player.rig.works/", "_blank");
 			break;
 		case "site":
-			window.open("https://viewer.rig.works/", "_blank");
+			window.open("https://rig.works/", "_blank");
 			break;
 		default:
 			if (cmd.startsWith("win:")) dock.toggle(cmd.slice(4));
@@ -508,7 +508,6 @@ function menusForFrame() {
 				{ id: "copy-link", label: "Copy link" },
 				{ id: "save-local", label: "Save local" },
 				{ id: "restore-local", label: "Restore local", disabled: !hasLocal },
-				{ id: "single", label: "Single-file HTML" },
 			],
 		},
 		{
@@ -537,7 +536,8 @@ function menusForFrame() {
 			items: [
 				{ id: "about", label: "About RigViewer" },
 				{ id: "player", label: "RigPlayer..." },
-				{ id: "site", label: "viewer.rig.works..." },
+				{ id: "site", label: "RigWorks..." },
+				{ id: "single", label: "Single-file HTML" },
 			],
 		},
 	];
@@ -554,6 +554,7 @@ function paintHost(now) {
 	const codes = currentParsed?.codes || [];
 	const hasCodes = codes.length > 0;
 	const issues = currentReport?.issues || [];
+	const aboutWas = dock.get("about")?.visible ?? false;
 	syncHostWindows(dock, {
 		parsed: currentParsed,
 		report: currentReport,
@@ -570,6 +571,14 @@ function paintHost(now) {
 				: "Stage",
 		stageBadge: currentParsed ? "LIVE" : "",
 		supportedActions: SUPPORTED_ACTION_IDS,
+	});
+	dock.define("about", {
+		title: "About",
+		dock: "float",
+		w: 46,
+		h: 16,
+		kind: "about",
+		visible: aboutWas,
 	});
 	if (hideStageForStory) {
 		dock.setVisible(WIN.stage, false);
@@ -637,6 +646,12 @@ function paintHost(now) {
 			if (panel) drawDocumentPanel(tui, currentParsed, panel, acc);
 		} else if (w.kind === "orphan" && currentParsed) {
 			drawOrphanControls(tui, currentParsed, acc);
+		} else if (w.kind === "about") {
+			tui.text("RigViewer", C.live);
+			tui.text("Presents a Rig document. Look, not play.", C.text);
+			tui.text("Viewer presents. Player plays.", C.dim);
+			tui.text("ImTui chrome. Same .rig in another app, UI included.", C.dim);
+			tui.text("rig.works", C.hot);
 		} else if (w.kind === "issues") {
 			if (!issues.length) tui.text("No issues.", C.dim);
 			const max = Math.max(3, client.y + client.h - tui.cy);

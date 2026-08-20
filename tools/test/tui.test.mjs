@@ -228,3 +228,24 @@ test("dock snaps a dragged window to the right and View lists it", () => {
 	dock.toggle(WIN.info);
 	assert.equal(dock.get(WIN.info).visible, true);
 });
+
+test("View menu items toggle windows; Issues starts closed", () => {
+	const dock = new TuiDock();
+	syncHostWindows(dock, {
+		parsed: { panels: [], controls: [], actions: [], groups: [] },
+		report: { issues: [] },
+		hasCode: true,
+		codeVisible: false,
+		showInfo: true,
+		showPrefs: true,
+		supportedActions: SUPPORTED_ACTION_IDS,
+	});
+	const items = viewMenuItems(dock);
+	assert.ok(items.every((it) => it.id.startsWith("win:")));
+	assert.equal(dock.get(WIN.issues)?.visible, false);
+	assert.equal(dock.get(WIN.code)?.visible, false);
+	dock.toggle(WIN.issues);
+	assert.equal(dock.get(WIN.issues)?.visible, true);
+	dock.toggle(WIN.prefs);
+	assert.equal(dock.get(WIN.prefs)?.visible, true);
+});
