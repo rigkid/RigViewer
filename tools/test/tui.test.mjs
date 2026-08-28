@@ -13,6 +13,8 @@ const {
 	ImTui,
 	C,
 	TuiDock,
+	isChromeChar,
+	pairKernClass,
 	gridMetrics,
 	documentHasChrome,
 	drawDocumentControls,
@@ -227,6 +229,17 @@ test("dock snaps a dragged window to the right and View lists it", () => {
 	assert.equal(dock.get(WIN.info).visible, false);
 	dock.toggle(WIN.info);
 	assert.equal(dock.get(WIN.info).visible, true);
+});
+
+test("kernOffsets tucks AV and resets after chrome", () => {
+	const tui = new ImTui();
+	boot(tui, 16, 4);
+	tui.write(0, 0, "AV", C.text);
+	tui.write(0, 1, "A│V", C.text);
+	const dx = tui.kernOffsets(pairKernClass, 1, isChromeChar);
+	assert.equal(dx[0], 0);
+	assert.ok(dx[1] < 0, "V after A should tuck");
+	assert.equal(dx[tui.cols + 2], 0, "V after box chrome starts a new run");
 });
 
 test("View menu items toggle windows; Issues starts closed", () => {

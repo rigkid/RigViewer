@@ -17,6 +17,7 @@ const sharePath = path.join(web, "share.mjs");
 const shaderPath = path.join(web, "shader.mjs");
 const validatePath = path.join(web, "validate.mjs");
 const tuiEnginePath = path.join(web, "tui", "engine.mjs");
+const tuiKernPath = path.join(web, "tui", "kern.mjs");
 const tuiDrawPath = path.join(web, "tui", "draw.mjs");
 const tuiDockPath = path.join(web, "tui", "dock.mjs");
 const tuiPanelsPath = path.join(web, "tui", "panels.mjs");
@@ -39,6 +40,7 @@ const shareSrc = fs.readFileSync(sharePath, "utf8");
 const shaderSrc = fs.readFileSync(shaderPath, "utf8");
 const validateSrc = fs.readFileSync(validatePath, "utf8");
 const tuiEngineSrc = fs.readFileSync(tuiEnginePath, "utf8");
+const tuiKernSrc = fs.readFileSync(tuiKernPath, "utf8");
 const tuiDrawSrc = fs.readFileSync(tuiDrawPath, "utf8");
 const tuiDockSrc = fs.readFileSync(tuiDockPath, "utf8");
 const tuiPanelsSrc = fs.readFileSync(tuiPanelsPath, "utf8");
@@ -64,7 +66,10 @@ const shaderUrl = URL.createObjectURL(new Blob([${JSON.stringify(shaderSrc)}], {
 const editorUrl = URL.createObjectURL(new Blob([${JSON.stringify(editorSrc)}], { type: "text/javascript" }));
 const validateUrl = URL.createObjectURL(new Blob([${JSON.stringify(validateSrc)}], { type: "text/javascript" }));
 const tuiEngineUrl = URL.createObjectURL(new Blob([${JSON.stringify(tuiEngineSrc)}], { type: "text/javascript" }));
-const tuiDrawBody = ${JSON.stringify(tuiDrawSrc)}.replace(/from ["']\\.\\/engine\\.mjs["']/, \`from "\${tuiEngineUrl}"\`);
+const tuiKernUrl = URL.createObjectURL(new Blob([${JSON.stringify(tuiKernSrc)}], { type: "text/javascript" }));
+const tuiDrawBody = ${JSON.stringify(tuiDrawSrc)}
+	.replace(/from ["']\\.\\/engine\\.mjs["']/, \`from "\${tuiEngineUrl}"\`)
+	.replace(/from ["']\\.\\/kern\\.mjs["']/, \`from "\${tuiKernUrl}"\`);
 const tuiDrawUrl = URL.createObjectURL(new Blob([tuiDrawBody], { type: "text/javascript" }));
 const tuiDockUrl = URL.createObjectURL(new Blob([${JSON.stringify(tuiDockSrc)}], { type: "text/javascript" }));
 const tuiPanelsBody = ${JSON.stringify(tuiPanelsSrc)}.replace(/from ["']\\.\\/engine\\.mjs["']/, \`from "\${tuiEngineUrl}"\`);
@@ -73,6 +78,7 @@ const tuiHostBody = ${JSON.stringify(tuiHostSrc)}.replace(/from ["']\\.\\/panels
 const tuiHostUrl = URL.createObjectURL(new Blob([tuiHostBody], { type: "text/javascript" }));
 const tuiIndexBody = ${JSON.stringify(tuiIndexSrc)}
 	.replace(/from ["']\\.\\/engine\\.mjs["']/, \`from "\${tuiEngineUrl}"\`)
+	.replace(/from ["']\\.\\/kern\\.mjs["']/, \`from "\${tuiKernUrl}"\`)
 	.replace(/from ["']\\.\\/draw\\.mjs["']/, \`from "\${tuiDrawUrl}"\`)
 	.replace(/from ["']\\.\\/dock\\.mjs["']/, \`from "\${tuiDockUrl}"\`)
 	.replace(/from ["']\\.\\/panels\\.mjs["']/, \`from "\${tuiPanelsUrl}"\`)
