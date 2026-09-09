@@ -242,6 +242,27 @@ export function mountViewer(canvas, parsed, prefs = {}) {
 		for (const [id, tr] of Object.entries(transforms)) {
 			const g = groups.get(id);
 			if (!g) continue;
+			const sh = tr.shear || [0, 0, 0];
+			if (sh[0] || sh[1] || sh[2]) {
+				// Shear has no PQS slot - compose the contract order T * R * Sh * S.
+				const q = tr.rotation || [0, 0, 0, 1];
+				const t = new THREE.Matrix4().makeTranslation(
+					tr.position[0], tr.position[1], tr.position[2] ?? 0);
+				const r = new THREE.Matrix4().makeRotationFromQuaternion(
+					new THREE.Quaternion(q[0] ?? 0, q[1] ?? 0, q[2] ?? 0, q[3] ?? 1));
+				// prettier-ignore
+				const shm = new THREE.Matrix4().set(
+					1, sh[0], sh[1], 0,
+					0, 1, sh[2], 0,
+					0, 0, 1, 0,
+					0, 0, 0, 1);
+				const s = new THREE.Matrix4().makeScale(
+					tr.scale?.[0] ?? 1, tr.scale?.[1] ?? 1, tr.scale?.[2] ?? 1);
+				g.matrix.copy(t.multiply(r).multiply(shm).multiply(s));
+				g.matrixAutoUpdate = false;
+				continue;
+			}
+			g.matrixAutoUpdate = true;
 			g.position.set(tr.position[0], tr.position[1], tr.position[2] ?? 0);
 			g.scale.set(tr.scale?.[0] ?? 1, tr.scale?.[1] ?? 1, tr.scale?.[2] ?? 1);
 			const q = tr.rotation || [0, 0, 0, 1];

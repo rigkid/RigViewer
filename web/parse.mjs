@@ -547,10 +547,13 @@ export function parseDocument(doc) {
 		}
 
 		const local = transform.position ?? [0, 0, 0];
+		const shear = transform.shear ?? [0, 0, 0];
 		transforms[e.id] = {
 			position: [local[0] ?? 0, local[1] ?? 0, local[2] ?? 0],
 			rotation: [...rotation],
 			scale: [...scale],
+			// Contract order T * R * Sh * S; (xy, xz, yz) unit upper-triangular.
+			shear: [shear[0] ?? 0, shear[1] ?? 0, shear[2] ?? 0],
 			parent: c["rig.spatial.relationship"]?.parent ?? null,
 		};
 
