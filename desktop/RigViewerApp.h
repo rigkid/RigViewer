@@ -10,12 +10,6 @@
 
 class RigViewerApp : public rigkit::IApp {
   public:
-	RigViewerApp() {
-		window().width = 1100;
-		window().height = 720;
-		window().title = "RigViewer";
-	}
-
 	void parseCommandLineArgs(const rigkit::CommandLineArgs& args) override;
 	void setup() override;
 	void update(float dt) override;
