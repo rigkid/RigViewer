@@ -1,5 +1,5 @@
 /**
- * RigViewer web host — ImTui chrome (same shell as RigPlayer), present only.
+ * RigViewer web host — document-first present (ImTui only for rig.ui.*; ?edit=1 for IDE).
  */
 import { parseDocumentText, mountViewer, documentWantsShaderPreview } from "./viewer.mjs";
 import { validateDocument } from "./validate.mjs";
@@ -33,7 +33,14 @@ const view = document.getElementById("view");
 const codeHost = document.getElementById("code-host");
 const fileInput = document.getElementById("file");
 const boot = document.getElementById("boot");
+const hostBar = document.getElementById("host");
+const noteEl = document.getElementById("note");
+const emptyEl = document.getElementById("empty");
 const embed = document.documentElement.classList.contains("embed");
+const editMode = document.documentElement.classList.contains("edit");
+const documentFirst = !embed && !editMode;
+/** @type {{ originX: number, originY: number, cellW: number, cellH: number, cols: number, rows: number } | null} */
+let lastMetrics = null;
 
 const tuiCtx = tuiCanvas?.getContext("2d");
 const tui = new ImTui();
@@ -112,16 +119,36 @@ function flashStatus(message) {
 	statusLine = message;
 }
 
+function syncNote() {
+	if (!noteEl) return;
+	if (!banner || bannerLevel === "ok") {
+		noteEl.hidden = true;
+		noteEl.textContent = "";
+		noteEl.className = "";
+		return;
+	}
+	noteEl.hidden = false;
+	noteEl.textContent = banner;
+	noteEl.className = bannerLevel === "hard" ? "err" : "warn";
+}
+
+function syncEmpty() {
+	if (!emptyEl || !documentFirst) return;
+	emptyEl.hidden = !!currentParsed;
+}
+
 function setShareBanner(level, message) {
 	if (!message || !level || level === "ok") {
 		banner = message && level === "ok" ? message : "";
 		bannerLevel = level === "ok" ? "ok" : "";
 		if (message && level === "ok") flashStatus(message);
+		syncNote();
 		return;
 	}
 	banner = message;
 	bannerLevel = level;
 	flashStatus(message);
+	syncNote();
 }
 
 const editor = createCodeEditor({
@@ -159,8 +186,10 @@ function remountViewer() {
 function disposeAll() {
 	handle?.dispose();
 	handle = null;
+	currentParsed = null;
 	lastStageKey = "";
 	if (codeHost) codeHost.hidden = true;
+	syncEmpty();
 }
 
 function placeRect(el, r) {
@@ -198,6 +227,9 @@ function controlsHint(parsed) {
 
 function showParsed(parsed, label, sourceText) {
 	disposeAll();
+	banner = "";
+	bannerLevel = "";
+	syncNote();
 	storyScroll = 0;
 	const storyOnly = !!(parsed.stories?.length && !parsed.geometryCount);
 	hideStageForStory = storyOnly;
@@ -215,8 +247,11 @@ function showParsed(parsed, label, sourceText) {
 	flashStatus(parsed.title || "Untitled");
 	dock.setVisible(WIN.code, (parsed.codes || []).length > 0);
 	syncEditor();
+	syncEmpty();
 	if (needsPlayer(parsed)) {
 		setShareBanner("soft", "Play loop — Viewer presents; open the .rig in RigPlayer.");
+	} else if (parsed.skipped?.length) {
+		setShareBanner("soft", `Skipped: ${parsed.skipped.slice(0, 6).join(", ")}${parsed.skipped.length > 6 ? "…" : ""}`);
 	}
 }
 
@@ -402,6 +437,23 @@ fileInput?.addEventListener("change", () => {
 	fileInput.value = "";
 });
 
+document.getElementById("host-open")?.addEventListener("click", () => runCmd("open"));
+document.getElementById("empty-open")?.addEventListener("click", () => runCmd("open"));
+document.getElementById("host-share")?.addEventListener("click", () => runCmd("copy-link"));
+document.getElementById("host-examples")?.addEventListener("change", (e) => {
+	const v = e.target?.value;
+	if (!v) return;
+	location.search = `?src=${encodeURIComponent(v)}`;
+});
+{
+	const editLink = document.getElementById("host-edit");
+	if (editLink && documentFirst) {
+		const u = new URL(location.href);
+		u.searchParams.set("edit", "1");
+		editLink.href = u.pathname + u.search + u.hash;
+	}
+}
+
 const isFileDrag = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
 ["dragenter", "dragover"].forEach((ev) => {
 	window.addEventListener(ev, (e) => {
@@ -420,6 +472,36 @@ const cssPos = (e, canvas) => {
 	return { x: e.clientX - r.left, y: e.clientY - r.top };
 };
 
+function cellFromCss(px, py) {
+	const m = lastMetrics;
+	if (!m) return { c: 0, r: 0 };
+	return {
+		c: Math.floor((px - m.originX) / m.cellW),
+		r: Math.floor((py - m.originY) / m.cellH),
+	};
+}
+
+function syncDocPointer(px, py) {
+	if (!documentFirst || !tuiCanvas) return;
+	ptrX = px;
+	ptrY = py;
+	const cell = cellFromCss(px, py);
+	const overUi = !!dock.drag || dock.coversChrome(cell.c, cell.r) || !!tui.activeId;
+	tuiCanvas.style.pointerEvents = overUi ? "auto" : "none";
+}
+
+if (documentFirst) {
+	window.addEventListener(
+		"pointermove",
+		(e) => {
+			if (!tuiCanvas) return;
+			const p = cssPos(e, tuiCanvas);
+			syncDocPointer(p.x, p.y);
+		},
+		{ passive: true },
+	);
+}
+
 if (tuiCanvas) {
 	tuiCanvas.addEventListener("pointerdown", (e) => {
 		const p = cssPos(e, tuiCanvas);
@@ -434,6 +516,7 @@ if (tuiCanvas) {
 		const p = cssPos(e, tuiCanvas);
 		ptrX = p.x;
 		ptrY = p.y;
+		if (documentFirst) syncDocPointer(p.x, p.y);
 	});
 	tuiCanvas.addEventListener("pointerup", () => {
 		ptrDown = false;
@@ -547,9 +630,10 @@ function paintHost(now) {
 	const rect = tuiCanvas.getBoundingClientRect();
 	const dpr = Math.min(window.devicePixelRatio || 1, 3);
 	const m = gridMetrics(rect.width, rect.height);
+	lastMetrics = m;
 	tui.setPointer(ptrX, ptrY, ptrDown, ptrClicked, ptrReleased);
 	tui.beginScreen(m.originX, m.originY, m.cellW, m.cellH, m.cols, m.rows);
-	tui.fillDesk();
+	if (!documentFirst) tui.fillDesk();
 
 	const codes = currentParsed?.codes || [];
 	const hasCodes = codes.length > 0;
@@ -562,8 +646,9 @@ function paintHost(now) {
 		hasStory: !!(currentParsed?.stories?.length),
 		storyOnly: !!(currentParsed?.stories?.length && !currentParsed.geometryCount),
 		storyTitle: currentParsed?.stories?.[0]?.name || currentParsed?.title || "Book",
-		showInfo: true,
-		showPrefs: true,
+		documentFirst,
+		showInfo: !documentFirst,
+		showPrefs: !documentFirst,
 		stageTitle: documentWantsShaderPreview(currentParsed || {})
 			? "Stage - GLSL"
 			: currentParsed
@@ -572,24 +657,33 @@ function paintHost(now) {
 		stageBadge: currentParsed ? "LIVE" : "",
 		supportedActions: SUPPORTED_ACTION_IDS,
 	});
-	dock.define("about", {
-		title: "About",
-		dock: "float",
-		w: 46,
-		h: 16,
-		kind: "about",
-		visible: aboutWas,
-	});
+	if (!documentFirst) {
+		dock.define("about", {
+			title: "About",
+			dock: "float",
+			w: 46,
+			h: 16,
+			kind: "about",
+			visible: aboutWas,
+		});
+	}
 	if (hideStageForStory) {
 		dock.setVisible(WIN.stage, false);
 		hideStageForStory = false;
 	}
 
-	const menus = menusForFrame();
-	const bar = tui.menubar(menus, menuOpen, "RigViewer");
-	menuOpen = bar.open;
+	const menus = documentFirst ? [] : menusForFrame();
+	let bar = { open: "", anchors: [] };
+	if (!documentFirst) {
+		bar = tui.menubar(menus, menuOpen, "RigViewer");
+		menuOpen = bar.open;
+	} else {
+		menuOpen = "";
+	}
 
-	const work = { x: 0, y: 1, w: m.cols, h: Math.max(6, m.rows - 2) };
+	const work = documentFirst
+		? { x: 0, y: 0, w: m.cols, h: m.rows }
+		: { x: 0, y: 1, w: m.cols, h: Math.max(6, m.rows - 2) };
 	dock.begin(tui, work, { menuOpen });
 
 	/** @type {{x:number,y:number,w:number,h:number}|null} */
@@ -603,7 +697,7 @@ function paintHost(now) {
 		if (!client) continue;
 		if (w.kind === "stage") {
 			stageClient = client;
-			if (!currentParsed) {
+			if (!documentFirst && !currentParsed) {
 				tui.cy = client.y + Math.floor(client.h / 2) - 1;
 				tui.text("Drop a Rig document, or File → Open", C.dim);
 				tui.text("Viewer presents  ·  Player plays", C.dim);
@@ -650,7 +744,7 @@ function paintHost(now) {
 			tui.text("RigViewer", C.live);
 			tui.text("Presents a Rig document. Look, not play.", C.text);
 			tui.text("Viewer presents. Player plays.", C.dim);
-			tui.text("ImTui chrome. Same .rig in another app, UI included.", C.dim);
+			tui.text("Document UI travels with the .rig.", C.dim);
 			tui.text("rig.works", C.hot);
 		} else if (w.kind === "issues") {
 			if (!issues.length) tui.text("No issues.", C.dim);
@@ -683,23 +777,32 @@ function paintHost(now) {
 		}
 	}
 
-	const dt = now - last;
-	const mode = currentParsed
-		? documentWantsShaderPreview(currentParsed)
-			? "glsl"
-			: "scene"
-		: "idle";
-	tui.statusbar(`LIVE  ${statusLine}`, `${dt.toFixed(0)}ms ${fps.toFixed(0)}fps  ${mode}`);
-
-	const drop = tui.menuDropdown(menus, menuOpen, bar.anchors);
-	menuOpen = drop.open;
-	if (drop.cmd) runCmd(drop.cmd);
+	if (!documentFirst) {
+		const dt = now - last;
+		const mode = currentParsed
+			? documentWantsShaderPreview(currentParsed)
+				? "glsl"
+				: "scene"
+			: "idle";
+		tui.statusbar(`LIVE  ${statusLine}`, `${dt.toFixed(0)}ms ${fps.toFixed(0)}fps  ${mode}`);
+		const drop = tui.menuDropdown(menus, menuOpen, bar.anchors);
+		menuOpen = drop.open;
+		if (drop.cmd) runCmd(drop.cmd);
+	}
 
 	tui.finishScreen();
 	if (tuiCtx) drawTui(tuiCtx, tui, rect.width, rect.height, dpr);
-	const chrome = menuOpen || !!dock.drag || dock.floatsOverStage() || !!tui.activeId;
-	tuiCanvas.style.zIndex = chrome ? "5" : "2";
-	if (view) view.style.pointerEvents = chrome ? "none" : "auto";
+
+	if (documentFirst) {
+		const overUi = !!dock.drag || dock.coversChrome(tui.mx, tui.my) || !!tui.activeId;
+		tuiCanvas.style.pointerEvents = overUi ? "auto" : "none";
+		tuiCanvas.style.zIndex = "5";
+		if (view) view.style.pointerEvents = "auto";
+	} else {
+		const chrome = menuOpen || !!dock.drag || dock.floatsOverStage() || !!tui.activeId;
+		tuiCanvas.style.zIndex = chrome ? "5" : "2";
+		if (view) view.style.pointerEvents = chrome ? "none" : "auto";
+	}
 	tuiCanvas.style.cursor = dock.resizeCursor();
 
 	return { stagePx: stageClient ? tui.rectToPixel(stageClient) : null, codePx };
@@ -711,7 +814,22 @@ function frameLoop(now) {
 
 	if (!embed && tuiCanvas && tuiCtx) {
 		const { stagePx, codePx } = paintHost(now);
-		if (currentParsed && stagePx) {
+		if (documentFirst) {
+			view.hidden = !currentParsed;
+			if (currentParsed && view) {
+				view.style.left = "0";
+				view.style.top = "0";
+				view.style.width = "100%";
+				view.style.height = "100%";
+				const w = view.clientWidth || Math.floor(view.getBoundingClientRect().width);
+				const h = view.clientHeight || Math.floor(view.getBoundingClientRect().height);
+				const stageKey = `${w}x${h}`;
+				if (w > 1 && h > 1 && stageKey !== lastStageKey) {
+					lastStageKey = stageKey;
+					handle?.resize?.();
+				}
+			}
+		} else if (currentParsed && stagePx) {
 			placeRect(view, stagePx);
 			view.hidden = false;
 			const stageKey = `${Math.round(stagePx.w)}x${Math.round(stagePx.h)}`;
@@ -731,6 +849,15 @@ function frameLoop(now) {
 	} else if (embed) {
 		view.hidden = !currentParsed;
 		if (codeHost) codeHost.hidden = true;
+		if (currentParsed && view) {
+			const w = view.clientWidth || Math.floor(view.getBoundingClientRect().width);
+			const h = view.clientHeight || Math.floor(view.getBoundingClientRect().height);
+			const stageKey = `${w}x${h}`;
+			if (w > 1 && h > 1 && stageKey !== lastStageKey) {
+				lastStageKey = stageKey;
+				handle?.resize?.();
+			}
+		}
 	}
 
 	last = now;
@@ -783,9 +910,13 @@ async function bootFromUrl() {
 	} else {
 		flashStatus("Loading 3D demo…");
 		const ok = await tryFetch(srcCandidates(defaultDemo));
-		if (!ok) flashStatus("Drop a Rig document, or File → Open");
+		if (!ok) {
+			flashStatus("Drop a Rig document, or Open");
+			syncEmpty();
+		}
 	}
 	hideBoot();
+	syncEmpty();
 }
 
 requestAnimationFrame(frameLoop);
