@@ -33,12 +33,13 @@ const view = document.getElementById("view");
 const codeHost = document.getElementById("code-host");
 const fileInput = document.getElementById("file");
 const boot = document.getElementById("boot");
-const hostBar = document.getElementById("host");
 const noteEl = document.getElementById("note");
 const emptyEl = document.getElementById("empty");
+const hostMore = document.getElementById("host-more");
 const embed = document.documentElement.classList.contains("embed");
 const editMode = document.documentElement.classList.contains("edit");
 const documentFirst = !embed && !editMode;
+const coarsePointer = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 /** @type {{ originX: number, originY: number, cellW: number, cellH: number, cols: number, rows: number } | null} */
 let lastMetrics = null;
 
@@ -133,8 +134,12 @@ function syncNote() {
 }
 
 function syncEmpty() {
-	if (!emptyEl || !documentFirst) return;
-	emptyEl.hidden = !!currentParsed;
+	if (!documentFirst) return;
+	const empty = !currentParsed;
+	if (emptyEl) emptyEl.hidden = !empty;
+	document.documentElement.classList.toggle("empty", empty);
+	if (hostMore) hostMore.hidden = empty || !coarsePointer;
+	if (empty) document.documentElement.classList.remove("host-show");
 }
 
 function setShareBanner(level, message) {
@@ -249,9 +254,7 @@ function showParsed(parsed, label, sourceText) {
 	syncEditor();
 	syncEmpty();
 	if (needsPlayer(parsed)) {
-		setShareBanner("soft", "Play loop — Viewer presents; open the .rig in RigPlayer.");
-	} else if (parsed.skipped?.length) {
-		setShareBanner("soft", `Skipped: ${parsed.skipped.slice(0, 6).join(", ")}${parsed.skipped.length > 6 ? "…" : ""}`);
+		setShareBanner("soft", "Open this document in RigPlayer to play.");
 	}
 }
 
@@ -438,20 +441,21 @@ fileInput?.addEventListener("change", () => {
 });
 
 document.getElementById("host-open")?.addEventListener("click", () => runCmd("open"));
-document.getElementById("empty-open")?.addEventListener("click", () => runCmd("open"));
 document.getElementById("host-share")?.addEventListener("click", () => runCmd("copy-link"));
-document.getElementById("host-examples")?.addEventListener("change", (e) => {
-	const v = e.target?.value;
-	if (!v) return;
-	location.search = `?src=${encodeURIComponent(v)}`;
+emptyEl?.addEventListener("click", () => runCmd("open"));
+hostMore?.addEventListener("click", () => {
+	document.documentElement.classList.toggle("host-show");
 });
-{
-	const editLink = document.getElementById("host-edit");
-	if (editLink && documentFirst) {
-		const u = new URL(location.href);
-		u.searchParams.set("edit", "1");
-		editLink.href = u.pathname + u.search + u.hash;
-	}
+if (documentFirst && !coarsePointer) {
+	window.addEventListener(
+		"pointermove",
+		(e) => {
+			if (!currentParsed) return;
+			const show = e.clientY < 48 || document.getElementById("host")?.contains(e.target);
+			document.documentElement.classList.toggle("host-show", show);
+		},
+		{ passive: true },
+	);
 }
 
 const isFileDrag = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
