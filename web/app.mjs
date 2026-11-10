@@ -36,10 +36,13 @@ const boot = document.getElementById("boot");
 const noteEl = document.getElementById("note");
 const emptyEl = document.getElementById("empty");
 const hostMore = document.getElementById("host-more");
+const dataHost = document.getElementById("data-host");
+const hostDataBtn = document.getElementById("host-data");
 const embed = document.documentElement.classList.contains("embed");
 const editMode = document.documentElement.classList.contains("edit");
 const documentFirst = !embed && !editMode;
 const coarsePointer = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+let dataMode = false;
 /** @type {{ originX: number, originY: number, cellW: number, cellH: number, cols: number, rows: number } | null} */
 let lastMetrics = null;
 
@@ -139,7 +142,11 @@ function syncEmpty() {
 	if (emptyEl) emptyEl.hidden = !empty;
 	document.documentElement.classList.toggle("empty", empty);
 	if (hostMore) hostMore.hidden = empty || !coarsePointer;
-	if (empty) document.documentElement.classList.remove("host-show");
+	if (empty) {
+		dataMode = false;
+		document.documentElement.classList.remove("host-show");
+	}
+	syncDataChrome();
 }
 
 function setShareBanner(level, message) {
@@ -166,6 +173,51 @@ const editor = createCodeEditor({
 	},
 });
 if (codeHost) codeHost.appendChild(editor.el);
+
+const docEditor = createCodeEditor({});
+docEditor.setLanguage("json");
+if (dataHost) dataHost.appendChild(docEditor.el);
+
+function formatDocText(text) {
+	try {
+		return JSON.stringify(JSON.parse(text), null, "\t");
+	} catch {
+		return text;
+	}
+}
+
+function syncDataChrome() {
+	document.documentElement.classList.toggle("data", dataMode);
+	if (hostDataBtn) hostDataBtn.textContent = dataMode ? "View" : "Data";
+	if (hostDataBtn) hostDataBtn.hidden = !documentFirst || !currentText;
+}
+
+async function enterDataMode() {
+	if (!currentText) return;
+	dataMode = true;
+	docEditor.setValue(formatDocText(currentText), { keepSelection: false });
+	syncDataChrome();
+	document.documentElement.classList.add("host-show");
+	docEditor.focus();
+}
+
+async function leaveDataMode() {
+	const next = docEditor.getValue();
+	const ok = await loadText(next, currentLabel || "data");
+	if (!ok) {
+		setShareBanner("hard", "Fix the JSON, then View again.");
+		dataMode = true;
+		syncDataChrome();
+		return;
+	}
+	dataMode = false;
+	syncDataChrome();
+}
+
+async function toggleDataMode() {
+	if (dataMode) await leaveDataMode();
+	else await enterDataMode();
+}
 
 function activeCode() {
 	const codes = currentParsed?.codes || [];
@@ -442,6 +494,9 @@ fileInput?.addEventListener("change", () => {
 
 document.getElementById("host-open")?.addEventListener("click", () => runCmd("open"));
 document.getElementById("host-share")?.addEventListener("click", () => runCmd("copy-link"));
+hostDataBtn?.addEventListener("click", () => {
+	void toggleDataMode();
+});
 emptyEl?.addEventListener("click", () => runCmd("open"));
 hostMore?.addEventListener("click", () => {
 	document.documentElement.classList.toggle("host-show");
@@ -450,14 +505,17 @@ if (documentFirst && !coarsePointer) {
 	window.addEventListener(
 		"pointermove",
 		(e) => {
-			if (!currentParsed) return;
+			if (!currentParsed && !dataMode) return;
+			if (dataMode) {
+				document.documentElement.classList.add("host-show");
+				return;
+			}
 			const show = e.clientY < 48 || document.getElementById("host")?.contains(e.target);
 			document.documentElement.classList.toggle("host-show", show);
 		},
 		{ passive: true },
 	);
 }
-
 const isFileDrag = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
 ["dragenter", "dragover"].forEach((ev) => {
 	window.addEventListener(ev, (e) => {
@@ -558,6 +616,11 @@ function nudgeStory(delta) {
 }
 
 window.addEventListener("keydown", (e) => {
+	if (documentFirst && dataMode && e.key === "Escape") {
+		e.preventDefault();
+		void leaveDataMode();
+		return;
+	}
 	if (menuOpen && e.key === "Escape") {
 		menuOpen = "";
 		e.preventDefault();
